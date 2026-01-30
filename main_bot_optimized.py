@@ -37,6 +37,7 @@ class Config:
         self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
         self.admin_ids = [int(id.strip()) for id in os.getenv('ADMIN_TELEGRAM_IDS', '').split(',') if id.strip()]
         self.webhook_url = os.getenv('WEBHOOK_URL', '')
+        self.mini_app_url = os.getenv('MINI_APP_URL', 'https://aibet-mini-prilozhenie.onrender.com')
 
 config = Config()
 
@@ -246,7 +247,7 @@ class TelegramBotService:
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(
                         text="🌐 Запустить Mini App", 
-                        web_app={"url": "https://aibet-mini-prilozhenie.onrender.com"}
+                        web_app={"url": config.mini_app_url}
                     )],
                     [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
                 ])
