@@ -19,7 +19,8 @@
 **Build Settings:**
 - Runtime: Python 3
 - Build Command: `pip install -r requirements.txt`
-- Start Command: `python app/main.py`
+- Start Command: `python render_main.py`
+- Health Check Path: `/health`
 
 **Environment Variables:**
 ```
