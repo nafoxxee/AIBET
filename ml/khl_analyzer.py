@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
 from .base_analyzer import BaseAnalyzer, Scenario
-from ..database import Match, Signal
+from database import Match, Signal
 
 logger = logging.getLogger(__name__)
 
