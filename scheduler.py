@@ -122,7 +122,7 @@ class TaskScheduler:
         
         # Задача очистки старых данных
         self.tasks['data_cleanup'] = asyncio.create_task(
-            self._schedule_task('data_cleanup', self._cleanup_old_data', 86400)  # Раз в день
+            self._schedule_task('data_cleanup', self._cleanup_old_data, 86400)  # Раз в день
         )
         
         logger.info(f"Started {len(self.tasks)} scheduled tasks")
