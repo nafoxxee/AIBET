@@ -4,8 +4,8 @@ services:
     name: aibet-mini-app
     env: python
     plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python main_web_analytics.py"
+    buildCommand: "pip install -r requirements.txt && chmod +x start_web.sh"
+    startCommand: "./start_web.sh"
     envVars:
       - key: PORT
         value: 10000
@@ -21,45 +21,6 @@ services:
     # Настройки для keep-alive
     disk:
       name: aibet-disk
-      mountPath: /tmp
-      sizeGB: 1
-    
-    # Регионы
-    regions:
-      - oregon
-    
-    # Scaling
-    scaling:
-      minInstances: 1
-      maxInstances: 1
-      targetMemoryPercent: 80
-      targetCPUPercent: 80
-
-  # AIBET Telegram Bot Service  
-  - type: worker
-    name: aibet-telegram-bot
-    env: python
-    plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python main_bot_ai.py"
-    envVars:
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: ADMIN_TELEGRAM_IDS
-        sync: false
-      - key: MINI_APP_URL
-        value: https://aibet-mini-app.onrender.com
-      - key: PORT
-        value: 10001
-      - key: PYTHON_VERSION
-        value: 3.9.0
-    
-    # Auto-deploy при пуше в main
-    autoDeploy: true
-    
-    # Настройки для keep-alive
-    disk:
-      name: aibet-bot-disk
       mountPath: /tmp
       sizeGB: 1
     
