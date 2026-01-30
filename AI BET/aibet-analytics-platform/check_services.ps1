@@ -1,4 +1,4 @@
-# 🔍 ДИАГНОСТИКА СЕРВИСОВ РЕНДЕР
+https://aibet-mini-prilozhenie.onrender.com# 🔍 ДИАГНОСТИКА СЕРВИСОВ РЕНДЕР
 
 param(
     [switch]$CheckOnly

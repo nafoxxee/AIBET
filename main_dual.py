@@ -10,6 +10,9 @@ import os
 import sys
 from datetime import datetime
 
+# Создание директории для логов ПЕРЕД настройкой
+os.makedirs("logs", exist_ok=True)
+
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
@@ -42,8 +45,5 @@ async def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    # Создание директории для логов
-    os.makedirs("logs", exist_ok=True)
-    
     # Запуск
     asyncio.run(main())
