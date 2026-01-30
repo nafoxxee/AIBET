@@ -1,0 +1,46 @@
+services:
+  # Web Service for Telegram Bot
+  - type: web
+    name: aibet-bot
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python app/main.py"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+        value: "8579178407:AAGr1hvHrApW7sgjg-SHbi_DpH53ZodS8-4"
+      - key: CS2_CHANNEL_ID
+        sync: false
+        value: "@aibetcsgo"
+      - key: KHL_CHANNEL_ID
+        sync: false
+        value: "@aibetkhl"
+      - key: PYTHON_VERSION
+        value: "3.9"
+    
+  # Background Worker for Scheduled Tasks
+  - type: worker
+    name: aibet-scheduler
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python scheduler_worker.py"
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+        value: "8579178407:AAGr1hvHrApW7sgjg-SHbi_DpH53ZodS8-4"
+      - key: CS2_CHANNEL_ID
+        sync: false
+        value: "@aibetcsgo"
+      - key: KHL_CHANNEL_ID
+        sync: false
+        value: "@aibetkhl"
+      - key: PYTHON_VERSION
+        value: "3.9"
+
+databases:
+  # SQLite Database (Render doesn't support SQLite directly, will use file storage)
+  # The database.db file will be stored in the service's filesystem
