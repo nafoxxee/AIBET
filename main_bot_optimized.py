@@ -233,17 +233,21 @@ class TelegramBotService:
             try:
                 mini_app_text = (
                     "🌐 *AIBET Mini App*\n\n"
-                    "📱 Откройте наш Mini App в Telegram:\n"
-                    "• 🎮 Интерактивный интерфейс\n"
+                    "📱 Откройте наш Mini App прямо в Telegram!\n\n"
+                    "🎮 *Что внутри:*\n"
+                    "• Интерактивный интерфейс\n"
                     "• 📊 Визуализация статистики\n"
                     "• 🔄 Автообновление данных\n"
                     "• 📈 Графики и аналитика\n\n"
-                    "🔗 *Ссылка на Mini App:*\n"
-                    "https://t.me/aibot_analytics_bot/app"
+                    "� Нажмите кнопку ниже для запуска:"
                 )
                 
+                # Правильная конфигурация для Telegram Mini App
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🌐 Открыть Mini App", web_app={"url": "https://aibet-мини-приложение.onrender.com"})],
+                    [InlineKeyboardButton(
+                        text="🌐 Запустить Mini App", 
+                        web_app={"url": "https://aibet-mini-prilozhenie.onrender.com"}
+                    )],
                     [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
                 ])
                 
