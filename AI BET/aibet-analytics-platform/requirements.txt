@@ -15,32 +15,32 @@ beautifulsoup4>=4.11.0
 lxml>=4.9.0
 requests>=2.28.0
 
-# Database
-sqlite3
+# Database (built-in, no pip install needed)
+# sqlite3 is built into Python
 
 # Configuration and utilities
 python-dotenv>=0.19.0
 pydantic>=1.9.0
 dataclasses>=0.6
 
-# Logging and monitoring
-logging>=0.4.9.6
+# Logging and monitoring (built-in)
+# logging is built into Python
 
-# Date/time handling
-datetime>=4.7
+# Date/time handling (built-in)
+# datetime is built into Python
 python-dateutil>=2.8.0
 
-# JSON handling
-json>=2.0.9
+# JSON handling (built-in)
+# json is built into Python
 
-# Regular expressions
-re>=2.2.1
+# Regular expressions (built-in)
+# re is built into Python
 
-# Math and statistics
-statistics>=1.0.3.5
+# Math and statistics (built-in)
+# statistics is built into Python
 
-# Type hints
-typing>=4.0.0
+# Type hints (built-in)
+# typing is built into Python
 
 # Optional: For enhanced web scraping (free alternatives)
 selenium>=4.0.0  # For dynamic content if needed
