@@ -1,6 +1,7 @@
 # AI BET Analytics Platform - Requirements for Render
 # Core dependencies
 aiohttp>=3.8.0
+aiohttp-cors>=0.7.0
 aiosqlite>=0.17.0
 aiogram>=3.0.0
 

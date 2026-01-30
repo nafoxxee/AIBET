@@ -6,6 +6,7 @@ Runs both health check server and Telegram bot
 
 import asyncio
 import logging
+import os
 import threading
 import time
 from datetime import datetime
@@ -22,8 +23,9 @@ def run_health_server():
     import uvicorn
     from health_server import app
     
-    logger.info("Starting health check server on port 8000...")
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    PORT = int(os.environ.get("PORT", 10000))
+    logger.info(f"Starting health check server on port {PORT}...")
+    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="info")
 
 async def run_telegram_bot():
     """Run Telegram bot"""

@@ -6,6 +6,7 @@ Telegram Bot + Mini App + Backend API + ML System
 
 import asyncio
 import logging
+import os
 import signal
 import sys
 from typing import Optional
@@ -57,11 +58,12 @@ class AIBetApplication:
             logger.info("✅ Планировщик инициализирован")
             
             # Запуск API сервера
+            PORT = int(os.environ.get("PORT", 10000))
             self.api_runner = await start_api_server(
-                host=config.api.host,
-                port=config.api.port
+                host="0.0.0.0",
+                port=PORT
             )
-            logger.info(f"✅ API сервер запущен на {config.api.host}:{config.api.port}")
+            logger.info(f"✅ API сервер запущен на 0.0.0.0:{PORT}")
             
             logger.info("🎯 AI BET Analytics Platform успешно инициализирована!")
             
@@ -84,7 +86,7 @@ class AIBetApplication:
             logger.warning("⚠️  ADMIN_TELEGRAM_IDS не настроены")
         
         logger.info(f"📋 Конфигурация:")
-        logger.info(f"   - API сервер: {config.api.host}:{config.api.port}")
+        logger.info(f"   - API сервер: 0.0.0.0:{os.environ.get('PORT', 10000)}")
         logger.info(f"   - База данных: {config.database.path}")
         logger.info(f"   - Админы: {len(config.telegram.admin_ids)} пользователей")
     
@@ -113,7 +115,7 @@ class AIBetApplication:
             
             logger.info("🎉 AI BET Analytics Platform успешно запущена!")
             logger.info("📱 Mini App доступна через Telegram")
-            logger.info(f"🌐 API документация: http://{config.api.host}:{config.api.port}/api")
+            logger.info(f"🌐 API документация: http://0.0.0.0:{PORT}/api")
             
             # Основной цикл работы
             await self._main_loop()
