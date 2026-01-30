@@ -4,8 +4,8 @@ services:
     name: aibet-bot
     env: python
     plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python render_main.py"
+    buildCommand: "pip install -r AI BET/aibet-analytics-platform/requirements.txt"
+    startCommand: "cd AI BET/aibet-analytics-platform && python render_main.py"
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -26,8 +26,8 @@ services:
     name: aibet-scheduler
     env: python
     plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python scheduler_worker.py"
+    buildCommand: "pip install -r AI BET/aibet-analytics-platform/requirements.txt"
+    startCommand: "cd AI BET/aibet-analytics-platform && python scheduler_worker.py"
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
