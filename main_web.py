@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-AI BET Analytics Platform - Web Service for Mini App
+AIBET - МИНИ ПРИЛОЖЕНИЕ ДЛЯ ТЕЛЕГРАМ
+Web Service for Mini App Interface
 FastAPI server for web interface and API endpoints
 """
 
@@ -32,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 # Создание FastAPI приложения
 app = FastAPI(
-    title="AI BET Analytics Platform",
-    description="Sports betting analytics platform",
+    title="AIBET - МИНИ ПРИЛОЖЕНИЕ ДЛЯ ТЕЛЕГРАМ",
+    description="Sports betting analytics platform for Telegram Mini App",
     version="1.0.0"
 )
 
@@ -44,7 +45,7 @@ MINI_APP_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI BET Analytics</title>
+    <title>AIBET - МИНИ ПРИЛОЖЕНИЕ</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -122,7 +123,7 @@ MINI_APP_HTML = """
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎯 AI BET Analytics Platform</h1>
+            <h1>🎯 AIBET - МИНИ ПРИЛОЖЕНИЕ ДЛЯ ТЕЛЕГРАМ</h1>
             <p>Аналитика спортивных ставок на основе ИИ</p>
         </div>
 
@@ -331,7 +332,7 @@ async def main():
         PORT = int(os.environ.get('PORT', 10000))
         HOST = "0.0.0.0"
         
-        logger.info(f"🚀 Запуск AI BET Web Service на {HOST}:{PORT}")
+        logger.info(f"🚀 Запуск AIBET Web Service на {HOST}:{PORT}")
         logger.info("📱 Mini App доступна по адресу: /")
         logger.info("🔗 API документация: /docs")
         
