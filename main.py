@@ -16,6 +16,9 @@ from bot import TelegramBot
 from scheduler import scheduler
 from api_server import start_api_server
 
+# Создание директории для логов
+os.makedirs("logs", exist_ok=True)
+
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
@@ -251,10 +254,6 @@ if __name__ == "__main__":
     if sys.version_info < (3, 8):
         print("❌ Требуется Python 3.8 или выше")
         sys.exit(1)
-    
-    # Создание директории для логов
-    import os
-    os.makedirs("logs", exist_ok=True)
     
     # Запуск приложения
     try:
