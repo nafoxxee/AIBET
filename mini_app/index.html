@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI BET Analytics - Mini App</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Экран загрузки -->
+        <div id="loading-screen" class="screen active">
+            <div class="loading-container">
+                <div class="loading-spinner"></div>
+                <h2>AI BET Analytics</h2>
+                <p>Загрузка...</p>
+            </div>
+        </div>
+
+        <!-- Главный экран -->
+        <div id="main-screen" class="screen">
+            <header class="header">
+                <div class="header-content">
+                    <h1>🎯 AI BET Analytics</h1>
+                    <div class="user-info">
+                        <span id="username">Пользователь</span>
+                        <span id="user-status" class="status-badge">🟢</span>
+                    </div>
+                </div>
+            </header>
+            
+            <nav class="main-nav">
+                <button class="nav-btn" onclick="showScreen('cs2-screen')">
+                    <span class="nav-icon">🔫</span>
+                    <span class="nav-label">CS2</span>
+                    <span class="nav-count" id="cs2-count">0</span>
+                </button>
+                <button class="nav-btn" onclick="showScreen('khl-screen')">
+                    <span class="nav-icon">🏒</span>
+                    <span class="nav-label">КХЛ</span>
+                    <span class="nav-count" id="khl-count">0</span>
+                </button>
+                <button class="nav-btn" onclick="showScreen('live-screen')">
+                    <span class="nav-icon">🔴</span>
+                    <span class="nav-label">Live</span>
+                    <span class="nav-count" id="live-count">0</span>
+                </button>
+                <button class="nav-btn" onclick="showScreen('prematch-screen')">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">Предматч</span>
+                </button>
+                <button class="nav-btn" onclick="showScreen('history-screen')">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-label">История</span>
+                </button>
+                <button class="nav-btn" onclick="showScreen('stats-screen')">
+                    <span class="nav-icon">📉</span>
+                    <span class="nav-label">Статистика</span>
+                </button>
+                <button class="nav-btn" onclick="showScreen('confidence-screen')">
+                    <span class="nav-icon">⭐</span>
+                    <span class="nav-label">Confidence</span>
+                </button>
+                <button class="nav-btn" onclick="showScreen('status-screen')">
+                    <span class="nav-icon">🔧</span>
+                    <span class="nav-label">Статус</span>
+                </button>
+                <button class="nav-btn admin-only" onclick="showScreen('admin-screen')" style="display: none;">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Админ</span>
+                </button>
+            </nav>
+            
+            <div class="quick-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-signals">0</div>
+                    <div class="stat-label">Сигналов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="accuracy">0%</div>
+                    <div class="stat-label">Точность</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="active-analyses">0</div>
+                    <div class="stat-label">Анализов</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран CS2 -->
+        <div id="cs2-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" onclick="showScreen('main-screen')">←</button>
+                <h1>🔫 CS2 Аналитика</h1>
+                <button class="refresh-btn" onclick="refreshCS2Data()">🔄</button>
+            </header>
+            
+            <div class="content">
+                <div class="filter-section">
+                    <select id="cs2-tournament-filter" onchange="applyFilters('cs2')">
+                        <option value="all">Все турниры</option>
+                        <option value="major">Major</option>
+                        <option value="iem">IEM</option>
+                        <option value="esl">ESL</option>
+                        <option value="blast">BLAST</option>
+                    </select>
+                    <select id="cs2-confidence-filter" onchange="applyFilters('cs2')">
+                        <option value="all">Все уровни</option>
+                        <option value="HIGH">Высокая</option>
+                        <option value="MEDIUM">Средняя</option>
+                        <option value="LOW">Низкая</option>
+                    </select>
+                </div>
+                
+                <div class="tab-section">
+                    <button class="tab-btn active" onclick="switchTab('cs2', 'matches')">Матчи</button>
+                    <button class="tab-btn" onclick="switchTab('cs2', 'signals')">Сигналы</button>
+                    <button class="tab-btn" onclick="switchTab('cs2', 'analytics')">Аналитика</button>
+                </div>
+                
+                <div id="cs2-content" class="tab-content">
+                    <div id="cs2-matches" class="matches-list">
+                        <!-- Матчи будут загружены через JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран КХЛ -->
+        <div id="khl-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" onclick="showScreen('main-screen')">←</button>
+                <h1>🏒 КХЛ Аналитика</h1>
+                <button class="refresh-btn" onclick="refreshKHLData()">🔄</button>
+            </header>
+            
+            <div class="content">
+                <div class="filter-section">
+                    <select id="khl-tournament-filter" onchange="applyFilters('khl')">
+                        <option value="all">Все матчи</option>
+                        <option value="regular">Регулярный сезон</option>
+                        <option value="playoffs">Плей-офф</option>
+                    </select>
+                    <select id="khl-confidence-filter" onchange="applyFilters('khl')">
+                        <option value="all">Все уровни</option>
+                        <option value="HIGH">Высокая</option>
+                        <option value="MEDIUM">Средняя</option>
+                        <option value="LOW">Низкая</option>
+                    </select>
+                </div>
+                
+                <div class="tab-section">
+                    <button class="tab-btn active" onclick="switchTab('khl', 'matches')">Матчи</button>
+                    <button class="tab-btn" onclick="switchTab('khl', 'signals')">Сигналы</button>
+                    <button class="tab-btn" onclick="switchTab('khl', 'analytics')">Аналитика</button>
+                </div>
+                
+                <div id="khl-content" class="tab-content">
+                    <div id="khl-matches" class="matches-list">
+                        <!-- Матчи будут загружены через JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран Live матчей -->
+        <div id="live-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" onclick="showScreen('main-screen')">←</button>
+                <h1>🔴 Live Матчи</h1>
+                <button class="refresh-btn" onclick="refreshLiveData()">🔄</button>
+            </header>
+            
+            <div class="content">
+                <div class="live-stats">
+                    <div class="live-stat-card cs2">
+                        <div class="live-icon">🔫</div>
+                        <div class="live-info">
+                            <div class="live-count" id="live-cs2-count">0</div>
+                            <div class="live-label">CS2 Live</div>
+                        </div>
+                    </div>
+                    <div class="live-stat-card khl">
+                        <div class="live-icon">🏒</div>
+                        <div class="live-info">
+                            <div class="live-count" id="live-khl-count">0</div>
+                            <div class="live-label">КХЛ Live</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="live-matches" class="matches-list">
+                    <!-- Live матчи будут загружены через JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран предматчевой аналитики -->
+        <div id="prematch-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" onclick="showScreen('main-screen')">←</button>
+                <h1>📊 Предматч</h1>
+                <button class="refresh-btn" onclick="refreshPrematchData()">🔄</button>
+            </header>
+            
+            <div class="content">
+                <div class="time-filter">
+                    <button class="time-btn active" data-hours="3" onclick="filterByTime(3)">3 часа</button>
+                    <button class="time-btn" data-hours="6" onclick="filterByTime(6)">6 часов</button>
+                    <button class="time-btn" data-hours="12" onclick="filterByTime(12)">12 часов</button>
+                    <button class="time-btn" data-hours="24" onclick="filterByTime(24)">24 часа</button>
+                </div>
+                
+                <div id="prematch-matches" class="matches-list">
+                    <!-- Предматчи будут загружены через JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран истории -->
+        <div id="history-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" onclick="showScreen('main-screen')">←</button>
+                <h1>📈 История сигналов</h1>
+                <button class="refresh-btn" onclick="refreshHistory()">🔄</button>
+            </header>
+            
+            <div class="content">
+                <div class="history-stats">
+                    <div class="history-stat-card">
+                        <div class="history-stat-value" id="history-total">0</div>
+                        <div class="history-stat-label">Всего сигналов</div>
+                    </div>
+                    <div class="history-stat-card">
+                        <div class="history-stat-value" id="history-accuracy">0%</div>
+                        <div class="history-stat-label">Точность</div>
+                    </div>
+                    <div class="history-stat-card">
+                        <div class="history-stat-value" id="history-streak">0</div>
+                        <div class="history-stat-label">Текущая серия</div>
+                    </div>
+                </div>
+                
+                <div class="filter-section">
+                    <select id="history-sport-filter" onchange="filterHistory()">
+                        <option value="all">Все виды спорта</option>
+                        <option value="cs2">CS2</option>
+                        <option value="khl">КХЛ</option>
+                    </select>
+                    <select id="history-result-filter" onchange="filterHistory()">
+                        <option value="all">Все результаты</option>
+                        <option value="win">Выигрыш</option>
+                        <option value="lose">Проигрыш</option>
+                        <option value="pending">Ожидание</option>
+                    </select>
+                </div>
+                
+                <div id="history-list" class="history-list">
+                    <!-- История будет загружена через JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран статистики -->
+        <div id="stats-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" onclick="showScreen('main-screen')">←</button>
+                <h1>📉 Статистика</h1>
+                <button class="refresh-btn" onclick="refreshStats()">🔄</button>
+            </header>
+            
+            <div class="content">
+                <div class="stats-tabs">
+                    <button class="stats-tab-btn active" onclick="switchStatsTab('overview')">Обзор</button>
+                    <button class="stats-tab-btn" onclick="switchStatsTab('cs2')">CS2</button>
+                    <button class="stats-tab-btn" onclick="switchStatsTab('khl')">КХЛ</button>
+                    <button class="stats-tab-btn" onclick="switchStatsTab('scenarios')">Сценарии</button>
+                </div>
+                
+                <div id="stats-content" class="stats-content">
+                    <!-- Статистика будет загружена через JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран рейтинга уверенности -->
+        <div id="confidence-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" onclick="showScreen('main-screen')">←</button>
+                <h1>⭐ Рейтинг уверенности</h1>
+                <button class="refresh-btn" onclick="refreshConfidence()">🔄</button>
+            </header>
+            
+            <div class="content">
+                <div class="confidence-legend">
+                    <div class="legend-item high">
+                        <div class="legend-color"></div>
+                        <div class="legend-text">ВЫСОКАЯ (80-100%)</div>
+                    </div>
+                    <div class="legend-item medium">
+                        <div class="legend-color"></div>
+                        <div class="legend-text">СРЕДНЯЯ (50-79%)</div>
+                    </div>
+                    <div class="legend-item low">
+                        <div class="legend-color"></div>
+                        <div class="legend-text">НИЗКАЯ (0-49%)</div>
+                    </div>
+                </div>
+                
+                <div id="confidence-list" class="confidence-list">
+                    <!-- Рейтинги будут загружены через JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Экран статуса системы -->
+        <div id="status-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" onclick="showScreen('main-screen')">←</button>
+                <h1>🔧 Статус системы</h1>
+                <button class="refresh-btn" onclick="refreshStatus()">🔄</button>
+            </header>
+            
+            <div class="content">
+                <div class="system-status">
+                    <div class="status-item">
+                        <div class="status-label">Backend API</div>
+                        <div class="status-value" id="backend-status">Проверка...</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">CS2 Parser</div>
+                        <div class="status-value" id="cs2-parser-status">Проверка...</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">КХЛ Parser</div>
+                        <div class="status-value" id="khl-parser-status">Проверка...</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">CS2 ML Model</div>
+                        <div class="status-value" id="cs2-ml-status">Проверка...</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">КХЛ ML Model</div>
+                        <div class="status-value" id="khl-ml-status">Проверка...</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Telegram Bot</div>
+                        <div class="status-value" id="telegram-status">Проверка...</div>
+                    </div>
+                </div>
+                
+                <div class="system-info">
+                    <h3>Системная информация</h3>
+                    <div id="system-details">
+                        <!-- Детали будут загружены через JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Админ панель -->
+        <div id="admin-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" onclick="showScreen('main-screen')">←</button>
+                <h1>⚙️ Админ панель</h1>
+            </header>
+            
+            <div class="content">
+                <div class="admin-actions">
+                    <button class="admin-btn" onclick="adminAction('run-analysis')">
+                        <span class="admin-icon">🚀</span>
+                        <span class="admin-text">Запустить анализ</span>
+                    </button>
+                    <button class="admin-btn" onclick="adminAction('restart-parsers')">
+                        <span class="admin-icon">🔄</span>
+                        <span class="admin-text">Перезапустить парсеры</span>
+                    </button>
+                    <button class="admin-btn" onclick="adminAction('retrain-ml')">
+                        <span class="admin-icon">🧠</span>
+                        <span class="admin-text">Переобучить ML</span>
+                    </button>
+                    <button class="admin-btn" onclick="adminAction('clear-cache')">
+                        <span class="admin-icon">🗑️</span>
+                        <span class="admin-text">Очистить кэш</span>
+                    </button>
+                    <button class="admin-btn" onclick="adminAction('backup-data')">
+                        <span class="admin-icon">💾</span>
+                        <span class="admin-text">Резервная копия</span>
+                    </button>
+                    <button class="admin-btn" onclick="adminAction('test-mode')">
+                        <span class="admin-icon">🧪</span>
+                        <span class="admin-text">Тестовый режим</span>
+                    </button>
+                </div>
+                
+                <div class="admin-logs">
+                    <h3>Системные логи</h3>
+                    <div id="admin-log-content">
+                        <!-- Логи будут загружены через JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Заголовок</h3>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                Содержимое модального окна
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

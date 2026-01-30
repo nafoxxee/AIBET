@@ -1,0 +1,54 @@
+services:
+  # Type: web (для веб-сервиса)
+  - type: web
+    name: ai-bet-api
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main.py"
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: CS2_CHANNEL_ID
+        sync: false
+      - key: KHL_CHANNEL_ID
+        sync: false
+      - key: ADMIN_TELEGRAM_IDS
+        sync: false
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 8080
+      - key: DATABASE_PATH
+        value: /tmp/database.db
+      - key: ML_RETRAIN_INTERVAL
+        value: 86400
+      - key: ML_MIN_TRAINING_SAMPLES
+        value: 100
+      - key: ML_CONFIDENCE_THRESHOLD
+        value: 0.6
+      - key: PYTHON_VERSION
+        value: 3.9.0
+    
+    # Health check для Render
+    healthCheckPath: /api/system/status
+    
+    # Auto-deploy при пуше в main
+    autoDeploy: true
+    
+    # Настройки для keep-alive
+    disk:
+      name: ai-bet-disk
+      mountPath: /tmp
+      sizeGB: 1
+    
+    # Регионы
+    regions:
+      - oregon
+    
+    # Scaling
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+      targetMemoryPercent: 80
+      targetCPUPercent: 80
