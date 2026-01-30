@@ -1,45 +1,56 @@
 # AIBET Analytics Platform - Complete Dependencies
-# AI/ML Stack
-scikit-learn>=1.3.2
-pandas>=2.1.4
-numpy>=1.25.2
-joblib>=1.3.2
-
-# Web Framework
+# Core dependencies
 fastapi>=0.104.1
 uvicorn[standard]>=0.24.0
-python-multipart>=0.0.6
-
-# Telegram Bot
 aiogram>=3.4.1
 aiohttp>=3.9.0
-aiohttp-cors>=0.7.0
+python-dotenv>=1.0.0
+aiofiles>=23.2.1
+structlog>=23.2.0
+python-dateutil>=2.8.2
+tenacity>=8.2.3
+cryptography>=41.0.8
 
 # Database
 aiosqlite>=0.19.0
-sqlalchemy>=2.0.23
+sqlite3
 
-# Data Collection/Parsing
-beautifulsoup4>=4.12.2
-lxml>=4.9.3
+# AI/ML
+scikit-learn>=1.3.0
+pandas>=2.1.0
+numpy>=1.24.0
+pickle5; python_version < "3.8"
+
+# Web scraping
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
 requests>=2.31.0
-httpx>=0.25.2
-selenium>=4.15.2
 
-# Utilities
-python-dotenv>=1.0.0
-pydantic>=2.5.0
-pydantic-settings>=2.1.0
-python-dateutil>=2.8.2
-pytz>=2023.3
-tenacity>=8.2.3
-cachetools>=5.3.2
+# Additional utilities
+pydantic>=2.7.0
+click>=8.1.0
+pyyaml>=6.0
+jinja2>=3.1.0
+markdown>=3.5.0
+
+# CORS and middleware
+aiohttp-cors>=0.7.0
+httpcore>=0.18.0
+pydantic-core>=2.14.0
+
+# Development and testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.7.0
+flake8>=6.0.0
+
+# Production
+gunicorn>=21.2.0
+psutil>=5.9.02
 async-limiter>=0.1.1
 
 # Security
 cryptography>=41.0.8
-
-# Performance
 psutil>=5.9.6
 
 # Development

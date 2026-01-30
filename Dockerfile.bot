@@ -16,6 +16,9 @@ RUN pip install --no-cache-dir -r requirements_full.txt
 COPY telegram_bot.py .
 COPY ai_models.py .
 COPY data_collector.py .
+COPY database.py .
+COPY config.py .
+COPY main_dual.py .
 
 # Создание необходимых директорий
 RUN mkdir -p logs tmp
@@ -26,4 +29,4 @@ ENV PYTHONUNBUFFERED=1
 ENV SERVICE_TYPE=bot
 
 # Команда запуска
-CMD ["python", "telegram_bot.py"]
+CMD ["python", "main_dual.py"]
