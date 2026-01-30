@@ -39,8 +39,8 @@ services:
       targetMemoryPercent: 80
       targetCPUPercent: 80
 
-  # AIBOT Telegram Bot Worker Service
-  - type: worker
+  # AIBOT Telegram Bot Web Service (Free Tier)
+  - type: web
     name: aibot-telegram-bot
     env: docker
     plan: free
@@ -49,6 +49,8 @@ services:
     buildCommand: "pip install -r requirements_full.txt"
     startCommand: "python main_dual.py"
     envVars:
+      - key: PORT
+        value: 10001
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: SERVICE_TYPE
@@ -77,7 +79,7 @@ services:
     regions:
       - oregon
     
-    # Worker scaling
+    # Scaling
     scaling:
       minInstances: 1
       maxInstances: 1

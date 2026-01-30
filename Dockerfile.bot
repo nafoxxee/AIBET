@@ -28,5 +28,8 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV SERVICE_TYPE=bot
 
+# Открытие порта для health check
+EXPOSE 10001
+
 # Команда запуска
 CMD ["python", "main_dual.py"]

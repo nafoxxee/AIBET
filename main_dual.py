@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AIBET Analytics Platform - Main Entry Point
-Запуск двух сервисов: Mini App и Telegram Bot
+Запуск двух сервисов: Mini App и Telegram Bot (оба как Web Services для free tier)
 """
 
 import asyncio
@@ -34,7 +34,7 @@ async def main():
         from mini_app import main as web_main
         await web_main()
     elif service_type == 'bot':
-        logger.info("🤖 Starting AIBOT Telegram Bot Service")
+        logger.info("🤖 Starting AIBOT Telegram Bot Web Service")
         from telegram_bot import main as bot_main
         await bot_main()
     else:
