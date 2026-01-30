@@ -7,7 +7,7 @@ import re
 import json
 
 from bs4 import BeautifulSoup
-from base_parser import BaseParser, ParsedMatch
+from .base_parser import BaseParser, ParsedMatch
 
 logger = logging.getLogger(__name__)
 
