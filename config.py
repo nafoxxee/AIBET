@@ -13,6 +13,10 @@ class TelegramConfig:
     cs2_channel_id: Optional[str] = None
     khl_channel_id: Optional[str] = None
     admin_ids: List[int] = None
+    cs2_channel: Optional[str] = None  # @aibetcsgo
+    khl_channel: Optional[str] = None  # @aibetkhl
+    admin_id: Optional[int] = None
+    web_app_url: Optional[str] = None
     
     def __post_init__(self):
         if self.admin_ids is None:
@@ -33,6 +37,7 @@ class APIConfig:
     host: str = "0.0.0.0"
     port: int = 8080
     webhook_url: Optional[str] = None
+    render_port: int = 10000  # Render default port
 
 
 @dataclass
@@ -60,9 +65,13 @@ class AppConfig:
     def from_env(cls) -> 'AppConfig':
         return cls(
             telegram=TelegramConfig(
-                bot_token=os.getenv('TELEGRAM_BOT_TOKEN'),
+                bot_token=os.getenv('TELEGRAM_BOT_TOKEN', '8579178407:AAGr1hvHrApW7sgjg-SHbi_DpH53ZodS8-4'),
                 cs2_channel_id=os.getenv('CS2_CHANNEL_ID'),
-                khl_channel_id=os.getenv('KHL_CHANNEL_ID')
+                khl_channel_id=os.getenv('KHL_CHANNEL_ID'),
+                cs2_channel=os.getenv('CS2_CHANNEL', '@aibetcsgo'),
+                khl_channel=os.getenv('KHL_CHANNEL', '@aibetkhl'),
+                admin_id=int(os.getenv('ADMIN_ID', '379036860')),
+                web_app_url=os.getenv('AIBET_WEB_URL', 'https://aibet-mini-app.onrender.com')
             ),
             database=DatabaseConfig(
                 path=os.getenv('DATABASE_PATH', 'database.db')
@@ -70,7 +79,8 @@ class AppConfig:
             api=APIConfig(
                 host=os.getenv('API_HOST', '0.0.0.0'),
                 port=int(os.getenv('API_PORT', 8080)),
-                webhook_url=os.getenv('WEBHOOK_URL')
+                webhook_url=os.getenv('WEBHOOK_URL'),
+                render_port=int(os.getenv('PORT', 10000))
             ),
             ml=MLConfig(
                 model_retrain_interval=int(os.getenv('ML_RETRAIN_INTERVAL', 86400)),

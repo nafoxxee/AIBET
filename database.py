@@ -44,6 +44,9 @@ class Signal:
     odds_at_signal: float
     published_at: datetime
     result: Optional[str] = None  # win, lose, push
+    prediction: Optional[str] = None  # team1, team2, draw
+    expected_value: Optional[float] = None
+    prediction_type: Optional[str] = None  # HIGH_CONFIDENCE, MEDIUM_CONFIDENCE, etc.
     created_at: datetime = None
     
     def __post_init__(self):
@@ -109,6 +112,9 @@ class DatabaseManager:
                 odds_at_signal REAL NOT NULL,
                 published_at TIMESTAMP NOT NULL,
                 result TEXT,
+                prediction TEXT,
+                expected_value REAL,
+                prediction_type TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (match_id) REFERENCES matches (id)
             )
@@ -245,13 +251,14 @@ class DatabaseManager:
             await self._connection.execute("""
                 INSERT OR REPLACE INTO signals 
                 (id, match_id, sport, scenario, confidence, probability, explanation, 
-                 factors, odds_at_signal, published_at, result, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 factors, odds_at_signal, published_at, result, prediction, expected_value, prediction_type, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 signal.id, signal.match_id, signal.sport, signal.scenario,
                 signal.confidence, signal.probability, signal.explanation,
                 json.dumps(signal.factors), signal.odds_at_signal,
-                signal.published_at, signal.result, signal.created_at
+                signal.published_at, signal.result, signal.prediction,
+                signal.expected_value, signal.prediction_type, signal.created_at
             ))
             await self._connection.commit()
             return True
@@ -410,7 +417,10 @@ class DatabaseManager:
             odds_at_signal=row[8],
             published_at=datetime.fromisoformat(row[9]),
             result=row[10],
-            created_at=datetime.fromisoformat(row[11])
+            prediction=row[11] if len(row) > 11 else None,
+            expected_value=row[12] if len(row) > 12 else None,
+            prediction_type=row[13] if len(row) > 13 else None,
+            created_at=datetime.fromisoformat(row[14]) if len(row) > 14 else datetime.now()
         )
     
     async def close(self):
