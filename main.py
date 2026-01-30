@@ -56,9 +56,13 @@ class AIBetApplication:
             else:
                 logger.warning("⚠️  Telegram бот не настроен")
             
-            # Инициализация планировщика
-            await scheduler.initialize()
-            logger.info("✅ Планировщик инициализирован")
+            # Инициализация планировщика (с обработкой ошибок)
+            try:
+                await scheduler.initialize()
+                logger.info("✅ Планировщик инициализирован")
+            except Exception as e:
+                logger.error(f"❌ Ошибка инициализации планировщика: {e}")
+                logger.info("🔄 Продолжаем работу без планировщика")
             
             # Запуск API сервера
             PORT = int(os.environ.get("PORT", 10000))
@@ -96,25 +100,39 @@ class AIBetApplication:
     async def start(self):
         """Запуск приложения"""
         try:
+            # Определяем PORT для Render
+            PORT = int(os.environ.get("PORT", 10000))
+            
             await self.initialize()
             self.running = True
             
             logger.info("🎮 Запуск основных компонентов...")
             
-            # Запуск Telegram бота
+            # Запуск Telegram бота (с обработкой ошибок)
             if self.telegram_bot:
-                telegram_task = asyncio.create_task(
-                    self.telegram_bot.run()
-                )
-                logger.info("📱 Telegram бот запущен")
+                try:
+                    telegram_task = asyncio.create_task(
+                        self.telegram_bot.run()
+                    )
+                    logger.info("📱 Telegram бот запущен")
+                except Exception as e:
+                    logger.error(f"❌ Ошибка запуска Telegram бота: {e}")
+                    logger.info("🔄 Продолжаем работу без Telegram бота")
             
-            # Запуск планировщика
-            scheduler_task = asyncio.create_task(scheduler.start())
-            logger.info("⏰ Планировщик запущен")
+            # Запуск планировщика (с обработкой ошибок)
+            try:
+                scheduler_task = asyncio.create_task(scheduler.start())
+                logger.info("⏰ Планировщик запущен")
+            except Exception as e:
+                logger.error(f"❌ Ошибка запуска планировщика: {e}")
+                logger.info("🔄 Продолжаем работу без планировщика")
             
-            # Отправка сообщения о запуске
+            # Отправка сообщения о запуске (с обработкой ошибок)
             if self.telegram_bot:
-                await self._send_startup_message()
+                try:
+                    await self._send_startup_message()
+                except Exception as e:
+                    logger.error(f"❌ Ошибка отправки сообщения о запуске: {e}")
             
             logger.info("🎉 AI BET Analytics Platform успешно запущена!")
             logger.info("📱 Mini App доступна через Telegram")
@@ -150,9 +168,12 @@ class AIBetApplication:
             if not self.api_runner:
                 logger.warning("⚠️  API сервер не активен")
             
-            # Проверка планировщика
-            if not scheduler.running:
-                logger.warning("⚠️  Планировщик не активен")
+            # Проверка планировщика (с обработкой ошибок)
+            try:
+                if not scheduler.running:
+                    logger.warning("⚠️  Планировщик не активен")
+            except Exception as e:
+                logger.error(f"❌ Ошибка проверки планировщика: {e}")
             
             # Проверка Telegram бота
             if self.telegram_bot:

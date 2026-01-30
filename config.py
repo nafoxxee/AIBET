@@ -43,11 +43,18 @@ class MLConfig:
 
 
 @dataclass
+class SchedulerConfig:
+    cs2_check_interval: int = 300  # 5 minutes
+    khl_check_interval: int = 600  # 10 minutes
+
+
+@dataclass
 class AppConfig:
     telegram: TelegramConfig
     database: DatabaseConfig
     api: APIConfig
     ml: MLConfig
+    scheduler: SchedulerConfig
     
     @classmethod
     def from_env(cls) -> 'AppConfig':
@@ -69,6 +76,10 @@ class AppConfig:
                 model_retrain_interval=int(os.getenv('ML_RETRAIN_INTERVAL', 86400)),
                 min_training_samples=int(os.getenv('ML_MIN_TRAINING_SAMPLES', 100)),
                 confidence_threshold=float(os.getenv('ML_CONFIDENCE_THRESHOLD', 0.6))
+            ),
+            scheduler=SchedulerConfig(
+                cs2_check_interval=int(os.getenv('CS2_CHECK_INTERVAL', 300)),
+                khl_check_interval=int(os.getenv('KHL_CHECK_INTERVAL', 600))
             )
         )
 
