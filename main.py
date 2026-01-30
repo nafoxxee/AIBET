@@ -11,13 +11,13 @@ import signal
 import sys
 from typing import Optional
 
+# Создание директории для логов (ДО любого импорта модулей)
+os.makedirs("logs", exist_ok=True)
+
 from config import config
 from bot import TelegramBot
 from scheduler import scheduler
 from api_server import start_api_server
-
-# Создание директории для логов
-os.makedirs("logs", exist_ok=True)
 
 # Настройка логирования
 logging.basicConfig(
