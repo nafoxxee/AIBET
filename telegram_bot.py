@@ -1,651 +1,546 @@
 #!/usr/bin/env python3
 """
-AIBOT - Advanced Telegram Bot with AI Analytics
-Автоматическая публикация сигналов в каналы CS:GO и КХЛ
+AIBET Analytics Platform - Telegram Bot
+Обновленный бот с inline кнопками и командами
 """
 
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Any
-from aiogram import Bot, Dispatcher, F
-from aiogram.filters import Command
+from typing import List, Dict, Optional
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command, StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.enums import ParseMode
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, 
-    InlineKeyboardButton, WebAppInfo, ReplyKeyboardMarkup,
-    KeyboardButton
+    InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 )
-from aiogram.enums import ParseMode
-import os
-import json
-import random
 
-# Импорты наших модулей
-from ai_models import AdvancedMLModels
-from data_collector import AdvancedDataCollector, DataCollectionScheduler
-from database import DatabaseManager, Signal
-from config import config
+from database import User, db_manager
+from signal_generator import signal_generator
+from telegram_publisher import create_telegram_publisher
 
 logger = logging.getLogger(__name__)
 
+class BotStates(StatesGroup):
+    main_menu = State()
+    signals = State()
+    stats = State()
+    settings = State()
+
 class AIBOTTelegramBot:
-    def __init__(self):
-        # Конфигурация из config
-        self.TOKEN = config.telegram.bot_token
-        self.ADMIN_ID = config.telegram.admin_id
-        self.CS2_CHANNEL = config.telegram.cs2_channel
-        self.KHL_CHANNEL = config.telegram.khl_channel
-        self.WEB_APP_URL = config.telegram.web_app_url
-        
-        # Инициализация
-        self.bot = Bot(token=self.TOKEN, parse_mode=ParseMode.HTML)
-        self.dp = Dispatcher()
-        
-        # База данных
-        self.db_manager = DatabaseManager(config.database.path)
-        
-        # ML и сбор данных
-        self.ml_models = AdvancedMLModels(self.db_manager)
-        self.data_collector = AdvancedDataCollector(self.db_manager)
-        
-        # Данные
-        self.signals_history = []
-        self.matches_data = []
-        self.bot_stats = {
-            'total_signals': 0,
-            'successful_signals': 0,
-            'cs2_signals': 0,
-            'khl_signals': 0,
-            'users_count': 0,
-            'last_signal_time': None
-        }
-        
-        # Настройка роутов
-        self.setup_handlers()
-        
-    def setup_handlers(self):
-        """Настройка всех обработчиков"""
-        
-        @self.dp.message(Command("start"))
-        async def cmd_start(message: Message):
-            """Команда /start"""
-            await self.send_welcome(message)
-        
-        @self.dp.message(Command("admin"))
-        async def cmd_admin(message: Message):
-            """Команда /admin"""
-            if message.from_user.id == self.ADMIN_ID:
-                await self.send_admin_panel(message)
-            else:
-                await message.answer("⛔ Доступ запрещен")
-        
-        @self.dp.message(Command("signals"))
-        async def cmd_signals(message: Message):
-            """Команда /signals"""
-            await self.send_signals(message)
-        
-        @self.dp.message(Command("live"))
-        async def cmd_live(message: Message):
-            """Команда /live"""
-            await self.send_live_matches(message)
-        
-        @self.dp.message(Command("stats"))
-        async def cmd_stats(message: Message):
-            """Команда /stats"""
-            await self.send_statistics(message)
-        
-        @self.dp.message(Command("help"))
-        async def cmd_help(message: Message):
-            """Команда /help"""
-            await self.send_help(message)
-        
-        @self.dp.callback_query(F.data.startswith("admin_"))
-        async def callback_admin(callback: CallbackQuery):
-            """Обработка админ-панели"""
-            await self.handle_admin_callback(callback)
-        
-        @self.dp.callback_query(F.data.startswith("signal_"))
-        async def callback_signal(callback: CallbackQuery):
-            """Обработка сигналов"""
-            await self.handle_signal_callback(callback)
-        
-        @self.dp.callback_query(F.data.startswith("menu_"))
-        async def callback_menu(callback: CallbackQuery):
-            """Обработка меню"""
-            await self.handle_menu_callback(callback)
-        
-        @self.dp.message()
-        async def handle_text(message: Message):
-            """Обработка текстовых сообщений"""
-            await self.handle_text_message(message)
+    def __init__(self, bot_token: str, admin_id: int):
+        self.bot_token = bot_token
+        self.admin_id = admin_id
+        self.bot = Bot(token=bot_token, parse_mode=ParseMode.HTML)
+        self.dp = Dispatcher(storage=MemoryStorage())
+        self.publisher = create_telegram_publisher(bot_token)
+        self._initialized = False
     
-    async def send_welcome(self, message: Message):
-        """Отправка приветственного сообщения"""
-        self.bot_stats['users_count'] += 1
+    async def initialize(self):
+        """Инициализация бота"""
+        if self._initialized:
+            return
+            
+        logger.info("🤖 Initializing AIBOT Telegram Bot")
         
-        welcome_text = """
-🤖 <b>Добро пожаловать в AIBET Analytics!</b>
-
-Я - AI-бот для анализа матчей CS:GO и КХЛ с автоматической публикацией сигналов.
-
-🔥 <b>Что я умею:</b>
-• 🧠 AI-анализ матчей с точностью до 85%
-• 📊 Автоматическая публикация сигналов
-• 🏒 Live-прогнозы по ходу матчей
-• 📈 Подробная статистика и история
-
-🎯 <b>Каналы с сигналами:</b>
-• CS:GO: @aibetcsgo
-• КХЛ: @aibetkhl
-
-📱 <b>Mini App:</b>
-Нажмите кнопку "📊 Mini App" для полного анализа!
-        """
+        # Инициализируем publisher
+        await self.publisher.initialize()
         
-        # Клавиатура
-        keyboard = ReplyKeyboardMarkup(
-            keyboard=[
-                [
-                    KeyboardButton(text="📊 Mini App", web_app=WebAppInfo(
-                        url=self.WEB_APP_URL
-                    ))
-                ],
-                [
-                    KeyboardButton(text="🔥 Сигналы"),
-                    KeyboardButton(text="🏒 Live матчи")
-                ],
-                [
-                    KeyboardButton(text="📈 Статистика"),
-                    KeyboardButton(text="❓ Помощь")
-                ]
-            ],
-            resize_keyboard=True
+        # Регистрируем handlers
+        self.register_handlers()
+        
+        self._initialized = True
+        logger.info("✅ AIBOT Telegram Bot initialized successfully")
+    
+    def register_handlers(self):
+        """Регистрация обработчиков"""
+        
+        # Команды
+        self.dp.message(Command("start"))(self.cmd_start)
+        self.dp.message(Command("help"))(self.cmd_help)
+        self.dp.message(Command("signals"))(self.cmd_signals)
+        self.dp.message(Command("stats"))(self.cmd_stats)
+        self.dp.message(Command("analyze"))(self.cmd_analyze)
+        self.dp.message(Command("admin"))(self.cmd_admin)
+        
+        # Callback queries
+        self.dp.callback_query(F.data == "main_menu")(self.cb_main_menu)
+        self.dp.callback_query(F.data == "live_matches")(self.cb_live_matches)
+        self.dp.callback_query(F.data == "signals")(self.cb_signals)
+        self.dp.callback_query(F.data == "stats")(self.cb_stats)
+        self.dp.callback_query(F.data == "analyze")(self.cb_analyze)
+        self.dp.callback_query(F.data == "settings")(self.cb_settings)
+        self.dp.callback_query(F.data.startswith("signal_"))(self.cb_signal_details)
+        self.dp.callback_query(F.data.startswith("match_"))(self.cb_match_details)
+        
+        # Любые другие сообщения
+        self.dp.message()(self.handle_message)
+    
+    async def cmd_start(self, message: Message):
+        """Команда /start"""
+        user_id = message.from_user.id
+        
+        # Регистрируем пользователя
+        user = User(telegram_id=user_id, is_admin=(user_id == self.admin_id))
+        await db_manager.add_user(user)
+        
+        # Приветственное сообщение
+        welcome_text = (
+            "<b>🤖 Добро пожаловать в AIBET Analytics Platform!</b>\n\n"
+            "🎯 <b>AI-анализ матчей CS2 и КХЛ с точностью >70%</b>\n\n"
+            "📊 <b>Что я умею:</b>\n"
+            "• 🔴 Live матчи в реальном времени\n"
+            "• 🤖 AI анализ предстоящих игр\n"
+            "• 📢 Автоматические сигналы\n"
+            "• 📈 Подробная статистика\n\n"
+            "<i>Используйте кнопки ниже для навигации</i>"
         )
         
+        keyboard = self.get_main_keyboard()
         await message.answer(welcome_text, reply_markup=keyboard)
     
-    async def send_admin_panel(self, message: Message):
-        """Отправка админ-панели"""
-        admin_text = f"""
-🛠️ <b>Админ-панель AIBOT</b>
-
-📊 <b>Статистика бота:</b>
-• Всего сигналов: {self.bot_stats['total_signals']}
-• Успешных: {self.bot_stats['successful_signals']}
-• CS:GO сигналов: {self.bot_stats['cs2_signals']}
-• КХЛ сигналов: {self.bot_stats['khl_signals']}
-• Пользователей: {self.bot_stats['users_count']}
-
-🎛️ <b>Управление:</b>
-        """
-        
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🔄 Обновить данные", callback_data="admin_update"),
-                InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats")
-            ],
-            [
-                InlineKeyboardButton(text="🔥 Создать сигнал", callback_data="admin_create_signal"),
-                InlineKeyboardButton(text="📢 Отправить в канал", callback_data="admin_send_channel")
-            ],
-            [
-                InlineKeyboardButton(text="⚙️ Настройки", callback_data="admin_settings"),
-                InlineKeyboardButton(text="📝 Логи", callback_data="admin_logs")
-            ]
-        ])
-        
-        await message.answer(admin_text, reply_markup=keyboard)
-    
-    async def send_signals(self, message: Message):
-        """Отправка последних сигналов"""
-        try:
-            signals = await self.db_manager.get_signals(limit=5)
-            if not signals:
-                await message.answer("📭 Сигналов пока нет. AI анализирует матчи...")
-                return
-            
-            signals_text = "🔥 <b>Последние сигналы AIBET:</b>\n\n"
-            
-            for signal in signals:
-                sport_icon = "🔫" if signal.sport == 'cs2' else "🏒"
-                confidence_value = float(signal.confidence.replace('%', '')) / 100 if isinstance(signal.confidence, str) else signal.confidence
-                confidence_emoji = "🟢" if confidence_value >= 0.8 else "🟡" if confidence_value >= 0.6 else "🔴"
-                
-                signals_text += f"""
-{sport_icon} <b>Match {signal.match_id}</b>
-{confidence_emoji} Уверенность: {(confidence_value * 100):.0f}%
-💰 Коэффициент: {signal.odds_at_signal}x
-🎯 Прогноз: {signal.prediction or 'team1'}
-⏰ {signal.published_at}
-
-{signal.explanation[:100]}...
-
----
-                """
-            
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [
-                    InlineKeyboardButton(text="📊 Mini App", web_app=WebAppInfo(
-                        url=self.WEB_APP_URL
-                    ))
-                ],
-                [
-                    InlineKeyboardButton(text="🔄 Обновить", callback_data="signal_refresh"),
-                    InlineKeyboardButton(text="📈 Все сигналы", callback_data="signal_all")
-                ]
-            ])
-            
-            await message.answer(signals_text, reply_markup=keyboard)
-            
-        except Exception as e:
-            logger.error(f"Error sending signals: {e}")
-            await message.answer("❌ Ошибка загрузки сигналов")
-    
-    async def send_live_matches(self, message: Message):
-        """Отправка live матчей"""
-        live_matches = await self.get_live_matches()
-        
-        if not live_matches:
-            await message.answer("🏒 Сейчас нет live матчей")
-            return
-        
-        live_text = "🏒 <b>Live матчи сейчас:</b>\n\n"
-        
-        for match in live_matches:
-            sport_icon = "🔫" if match['sport'] == 'cs2' else "🏒"
-            
-            live_text += f"""
-{sport_icon} <b>{match['team1']} vs {match['team2']}</b>
-⚡ Счет: {match['score1']} - {match['score2']}
-🏆 {match['tournament']}
-📡 <b>LIVE</b>
-
----
-            """
-        
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🔄 Обновить", callback_data="live_refresh"),
-                InlineKeyboardButton(text="📊 Mini App", web_app=WebAppInfo(
-                    url="https://aibet-mini-app.onrender.com"
-                ))
-            ]
-        ])
-        
-        await message.answer(live_text, reply_markup=keyboard)
-    
-    async def send_statistics(self, message: Message):
-        """Отправка статистики"""
-        stats_text = f"""
-📈 <b>Статистика AIBET:</b>
-
-🎯 <b>Общая статистика:</b>
-• Всего сигналов: {self.bot_stats['total_signals']}
-• Успешных: {self.bot_stats['successful_signals']}
-• Успешность: {(self.bot_stats['successful_signals'] / max(1, self.bot_stats['total_signals']) * 100):.1f}%
-
-🔫 <b>CS:GO:</b>
-• Сигналов: {self.bot_stats['cs2_signals']}
-• Точность: {(self.bot_stats['successful_signals'] / max(1, self.bot_stats['cs2_signals']) * 100):.1f}%
-
-🏒 <b>КХЛ:</b>
-• Сигналов: {self.bot_stats['khl_signals']}
-• Точность: {(self.bot_stats['successful_signals'] / max(1, self.bot_stats['khl_signals']) * 100):.1f}%
-
-👥 <b>Пользователи:</b>
-• Активных: {self.bot_stats['users_count']}
-        """
-        
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="📊 Mini App", web_app=WebAppInfo(
-                    url="https://aibet-mini-app.onrender.com"
-                ))
-            ]
-        ])
-        
-        await message.answer(stats_text, reply_markup=keyboard)
-    
-    async def send_help(self, message: Message):
-        """Отправка помощи"""
-        help_text = """
-❓ <b>Помощь AIBOT:</b>
-
-🔥 <b>Основные команды:</b>
-/start - Главное меню
-/signals - Последние сигналы
-/live - Live матчи
-/stats - Статистика
-/help - Эта помощь
-
-📱 <b>Mini App:</b>
-• Полный анализ матчей
-• Графики и статистика
-• История сигналов
-• Настройки уведомлений
-
-🎯 <b>Каналы с сигналами:</b>
-• CS:GO: @aibetcsgo
-• КХЛ: @aibetkhl
-
-🤖 <b>AI возможности:</b>
-• Точность прогнозов до 85%
-• Анализ в реальном времени
-• Учет формы команд
-• Explainable AI
-
-💬 <b>Поддержка:</b>
-По вопросам пишите администратору
-        """
+    async def cmd_help(self, message: Message):
+        """Команда /help"""
+        help_text = (
+            "<b>📖 Справка AIBOT</b>\n\n"
+            "<b>🔥 Основные команды:</b>\n"
+            "/start - Главное меню\n"
+            "/signals - Последние сигналы\n"
+            "/stats - Статистика системы\n"
+            "/analyze - AI анализ матчей\n"
+            "/help - Эта справка\n\n"
+            "<b>🎯 Функции:</b>\n"
+            "• 🔴 <b>Live матчи</b> - Матчи в реальном времени\n"
+            "• 🤖 <b>AI анализ</b> - Предсказания с уверенностью >70%\n"
+            "• 📊 <b>Статистика</b> - Точность и производительность\n"
+            "• ⚙️ <b>Настройки</b> - Персонализация\n\n"
+            "<b>📢 Каналы:</b>\n"
+            "• @aibetcsgo - CS2 сигналы\n"
+            "• @aibetkhl - КХЛ сигналы\n\n"
+            "<i>По вопросам: @admin</i>"
+        )
         
         await message.answer(help_text)
     
-    async def handle_text_message(self, message: Message):
-        """Обработка текстовых сообщений"""
-        text = message.text.lower()
-        
-        if "сигнал" in text or "signal" in text:
-            await self.send_signals(message)
-        elif "live" in text or "матч" in text:
-            await self.send_live_matches(message)
-        elif "статистик" in text or "stats" in text:
-            await self.send_statistics(message)
-        elif "помощ" in text or "help" in text:
-            await self.send_help(message)
-        else:
-            await message.answer("🤖 Используйте кнопки меню или команды /help")
+    async def cmd_signals(self, message: Message):
+        """Команда /signals"""
+        await self.show_signals(message)
     
-    async def handle_admin_callback(self, callback: CallbackQuery):
-        """Обработка админ-колбэков"""
-        action = callback.data.split("_")[1]
-        
-        if action == "update":
-            await self.update_all_data(callback.message)
-        elif action == "stats":
-            await self.send_detailed_stats(callback.message)
-        elif action == "create_signal":
-            await self.create_manual_signal(callback.message)
-        elif action == "send_channel":
-            await self.send_to_channels(callback.message)
-        elif action == "settings":
-            await self.show_settings(callback.message)
-        elif action == "logs":
-            await self.show_logs(callback.message)
-        
-        await callback.answer()
+    async def cmd_stats(self, message: Message):
+        """Команда /stats"""
+        await self.show_stats(message)
     
-    async def handle_signal_callback(self, callback: CallbackQuery):
-        """Обработка колбэков сигналов"""
-        action = callback.data.split("_")[1]
-        
-        if action == "refresh":
-            await self.send_signals(callback.message)
-        elif action == "all":
-            await self.send_all_signals(callback.message)
-        
-        await callback.answer()
+    async def cmd_analyze(self, message: Message):
+        """Команда /analyze"""
+        await self.show_analyze(message)
     
-    async def handle_menu_callback(self, callback: CallbackQuery):
-        """Обработка колбэков меню"""
-        await callback.answer()
-    
-    async def update_all_data(self, message: Message):
-        """Обновление всех данных"""
-        await message.answer("🔄 Обновляю данные...")
-        
-        try:
-            # Обновление матчей
-            async with self.data_collector as collector:
-                self.matches_data = await collector.collect_all_data()
-            
-            # Обновление моделей
-            await self.ml_models.initialize_models()
-            
-            await message.answer("✅ Данные успешно обновлены!")
-            
-        except Exception as e:
-            logger.error(f"Error updating data: {e}")
-            await message.answer(f"❌ Ошибка обновления: {e}")
-    
-    async def create_manual_signal(self, message: Message):
-        """Создание ручного сигнала"""
-        if not self.matches_data:
-            await message.answer("❌ Нет доступных матчей")
+    async def cmd_admin(self, message: Message):
+        """Команда /admin"""
+        if message.from_user.id != self.admin_id:
+            await message.answer("⛔ Доступ запрещен")
             return
         
-        # Выбираем случайный матч для сигнала
-        match = random.choice(self.matches_data)
-        
-        try:
-            signal = await self.ml_models.generate_signal(match, match['sport'])
-            
-            if signal:
-                self.signals_history.insert(0, signal)
-                self.bot_stats['total_signals'] += 1
-                self.bot_stats['cs2_signals'] += 1 if signal['sport'] == 'cs2' else 0
-                self.bot_stats['khl_signals'] += 1 if signal['sport'] == 'khl' else 0
-                
-                await message.answer(f"✅ Сигнал создан: {signal['match']}")
-            else:
-                await message.answer("❌ Не удалось создать сигнал")
-                
-        except Exception as e:
-            logger.error(f"Error creating signal: {e}")
-            await message.answer(f"❌ Ошибка создания сигнала: {e}")
+        await self.show_admin_panel(message)
     
-    async def send_to_channels(self, message: Message):
-        """Отправка сигналов в каналы"""
-        if not self.signals_history:
-            await message.answer("❌ Нет сигналов для отправки")
-            return
+    async def cb_main_menu(self, callback: CallbackQuery):
+        """Главное меню"""
+        await callback.answer()
         
-        latest_signal = self.signals_history[0]
-        
-        try:
-            # Форматирование сообщения для канала
-            channel_message = self.format_signal_for_channel(latest_signal)
-            
-            # Отправка в соответствующий канал
-            if latest_signal['sport'] == 'cs2':
-                await self.bot.send_message(self.CS2_CHANNEL, channel_message)
-            else:
-                await self.bot.send_message(self.KHL_CHANNEL, channel_message)
-            
-            await message.answer(f"✅ Сигнал отправлен в канал {latest_signal['sport']}")
-            
-        except Exception as e:
-            logger.error(f"Error sending to channel: {e}")
-            await message.answer(f"❌ Ошибка отправки: {e}")
-    
-    def format_signal_for_channel(self, signal: Dict) -> str:
-        """Форматирование сигнала для канала"""
-        sport_icon = "🔫" if signal['sport'] == 'cs2' else "🏒"
-        confidence_emoji = "🟢" if signal['confidence'] >= 0.8 else "🟡" if signal['confidence'] >= 0.6 else "🔴"
-        
-        message = f"""
-{sport_icon} <b>AIBET SIGNAL</b>
-
-🏆 <b>{signal['match']}</b>
-
-🎯 <b>Прогноз:</b> {signal['prediction']}
-{confidence_emoji} <b>Уверенность:</b> {(signal['confidence'] * 100):.0f}%
-💰 <b>Коэффициент:</b> {signal['odds']}x
-📊 <b>Ценность:</b> {(signal['expected_value'] * 100):.1f}%
-
-🤖 <b>AI Анализ:</b>
-{signal['explanation']}
-
-📈 <b>Ключевые факторы:</b>
-{chr(10).join(f"• {factor}" for factor in signal['factors'])}
-
----
-⚡ <b>AIBET Analytics</b> | AI-powered betting signals
-        """
-        
-        return message
-    
-    async def get_live_matches(self) -> List[Dict]:
-        """Получение live матчей"""
-        # Здесь будет логика получения live матчей
-        return [
-            {
-                'id': 'live_1',
-                'sport': 'cs2',
-                'team1': 'FaZe',
-                'team2': 'Vitality',
-                'tournament': 'IEM Katowice 2026',
-                'status': 'live',
-                'score1': 12,
-                'score2': 8
-            }
-        ]
-    
-    async def send_detailed_stats(self, message: Message):
-        """Отправка детальной статистики"""
-        stats_text = f"""
-📊 <b>Детальная статистика AIBOT:</b>
-
-🎯 <b>Производительность:</b>
-• Всего сигналов: {self.bot_stats['total_signals']}
-• Успешных: {self.bot_stats['successful_signals']}
-• Проигрышных: {self.bot_stats['total_signals'] - self.bot_stats['successful_signals']}
-• Успешность: {(self.bot_stats['successful_signals'] / max(1, self.bot_stats['total_signals']) * 100):.1f}%
-
-🔫 <b>CS:GO статистика:</b>
-• Сигналов: {self.bot_stats['cs2_signals']}
-• Успешность: {(self.bot_stats['successful_signals'] / max(1, self.bot_stats['cs2_signals']) * 100):.1f}%
-
-🏒 <b>КХЛ статистика:</b>
-• Сигналов: {self.bot_stats['khl_signals']}
-• Успешность: {(self.bot_stats['successful_signals'] / max(1, self.bot_stats['khl_signals']) * 100):.1f}%
-
-👥 <b>Пользователи:</b>
-• Всего: {self.bot_stats['users_count']}
-• Активных: {self.bot_stats['users_count']}
-
-⏰ <b>Последний сигнал:</b>
-{self.bot_stats['last_signal_time'] or 'Нет'}
-        """
-        
-        await message.answer(stats_text)
-    
-    async def show_settings(self, message: Message):
-        """Показ настроек"""
-        settings_text = """
-⚙️ <b>Настройки AIBOT:</b>
-
-🔔 <b>Уведомления:</b>
-• Автопубликация сигналов: ✅
-• Live-обновления: ✅
-• Статистические отчеты: ✅
-
-🤖 <b>AI настройки:</b>
-• Минимальная уверенность: 65%
-• Минимальная ценность: 5%
-• Автообучение: ✅
-
-📡 <b>Каналы:</b>
-• CS:GO: @aibetcsgo ✅
-• КХЛ: @aibetkhl ✅
-
-⚡ <b>Система:</b>
-• Статус: Активна
-• Версия: 1.0.0
-• Uptime: 24/7
-        """
+        menu_text = (
+            "<b>🏠 Главное меню</b>\n\n"
+            "Выберите интересующий раздел:"
+        )
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔄 Перезапустить AI", callback_data="admin_restart_ai"),
-                InlineKeyboardButton(text="📊 Очистить кэш", callback_data="admin_clear_cache")
+                InlineKeyboardButton(text="🔴 Live матчи", callback_data="live_matches"),
+                InlineKeyboardButton(text="🤖 AI анализ", callback_data="analyze")
+            ],
+            [
+                InlineKeyboardButton(text="📢 Сигналы", callback_data="signals"),
+                InlineKeyboardButton(text="📊 Статистика", callback_data="stats")
+            ],
+            [
+                InlineKeyboardButton(text="⚙️ Настройки", callback_data="settings")
             ]
         ])
         
-        await message.answer(settings_text, reply_markup=keyboard)
+        await callback.message.edit_text(menu_text, reply_markup=keyboard)
     
-    async def show_logs(self, message: Message):
-        """Показ логов"""
-        logs_text = """
-📝 <b>Последние логи AIBOT:</b>
-
-✅ [2026-01-30 22:30] Бот запущен
-✅ [2026-01-30 22:25] ML модели загружены
-✅ [2026-01-30 22:20] Данные обновлены
-🔥 [2026-01-30 22:15] Сигнал отправлен: NAVI vs G2
-✅ [2026-01-30 22:10] Live матч обновлен
-📊 [2026-01-30 22:05] Статистика обновлена
-
-🔥 <b>Активность за сегодня:</b>
-• Сигналов создано: 12
-• В каналы отправлено: 8
-• Пользователей: 156
-• Ошибок: 0
-        """
+    async def cb_live_matches(self, callback: CallbackQuery):
+        """Live матчи"""
+        await callback.answer()
         
-        await message.answer(logs_text)
+        try:
+            # Получаем live матчи
+            from database import Match
+            matches = await db_manager.get_matches(status="live", limit=10)
+            
+            if not matches:
+                await callback.message.edit_text(
+                    "🔴 <b>Live матчи</b>\n\n"
+                    "Сейчас нет активных матчей",
+                    reply_markup=self.get_back_keyboard("main_menu")
+                )
+                return
+            
+            text = f"🔴 <b>Live матчи ({len(matches)})</b>\n\n"
+            
+            keyboard_buttons = []
+            for i, match in enumerate(matches[:5], 1):
+                text += f"{i}. <b>{match.team1}</b> vs <b>{match.team2}</b>\n"
+                text += f"🏆 {match.features.get('tournament', 'Unknown')}\n"
+                text += f"⚡ Счет: {match.score or 'Идет'}\n\n"
+                
+                keyboard_buttons.append([
+                    InlineKeyboardButton(
+                        text=f"📊 {match.team1} vs {match.team2}",
+                        callback_data=f"match_{match.id}"
+                    )
+                ])
+            
+            keyboard_buttons.append([
+                InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")
+            ])
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+            await callback.message.edit_text(text, reply_markup=keyboard)
+            
+        except Exception as e:
+            logger.error(f"Error in cb_live_matches: {e}")
+            await callback.message.edit_text(
+                "❌ Ошибка загрузки матчей",
+                reply_markup=self.get_back_keyboard("main_menu")
+            )
     
-    async def auto_signal_loop(self):
-        """Автоматический цикл создания сигналов"""
-        while True:
-            try:
-                # Обновление данных
-                async with self.data_collector as collector:
-                    self.matches_data = await collector.collect_all_data()
+    async def cb_signals(self, callback: CallbackQuery):
+        """Сигналы"""
+        await callback.answer()
+        
+        try:
+            # Получаем последние сигналы
+            signals = await db_manager.get_signals(published=True, limit=10)
+            
+            if not signals:
+                await callback.message.edit_text(
+                    "📢 <b>Сигналы</b>\n\n"
+                    "Пока нет опубликованных сигналов",
+                    reply_markup=self.get_back_keyboard("main_menu")
+                )
+                return
+            
+            text = f"📢 <b>Последние сигналы ({len(signals)})</b>\n\n"
+            
+            keyboard_buttons = []
+            for i, signal in enumerate(signals[:5], 1):
+                # Короткая версия сигнала
+                signal_preview = signal.signal[:50] + "..." if len(signal.signal) > 50 else signal.signal
+                confidence = int(signal.confidence * 100)
                 
-                # Создание сигналов для качественных матчей
-                for match in self.matches_data:
-                    if match['status'] == 'upcoming':
-                        signal = await self.ml_models.generate_signal(match, match['sport'])
-                        
-                        if signal and signal['confidence'] >= 0.7:
-                            self.signals_history.insert(0, signal)
-                            self.bot_stats['total_signals'] += 1
-                            self.bot_stats['cs2_signals'] += 1 if signal['sport'] == 'cs2' else 0
-                            self.bot_stats['khl_signals'] += 1 if signal['sport'] == 'khl' else 0
-                            self.bot_stats['last_signal_time'] = datetime.now().strftime("%Y-%m-%d %H:%M")
-                            
-                            # Отправка в канал
-                            try:
-                                channel_message = self.format_signal_for_channel(signal)
-                                if signal['sport'] == 'cs2':
-                                    await self.bot.send_message(self.CS2_CHANNEL, channel_message)
-                                else:
-                                    await self.bot.send_message(self.KHL_CHANNEL, channel_message)
-                                
-                                logger.info(f"Signal sent to {signal['sport']} channel")
-                                
-                            except Exception as e:
-                                logger.error(f"Error sending signal to channel: {e}")
+                text += f"{i}. {signal.sport.upper()}\n"
+                text += f"📊 {signal_preview}\n"
+                text += f"🎯 Уверенность: {confidence}%\n"
+                text += f"🕐 {signal.created_at.strftime('%H:%M')}\n\n"
                 
-                # Ожидание перед следующей проверкой (30 минут)
-                await asyncio.sleep(1800)
-                
-            except Exception as e:
-                logger.error(f"Error in auto signal loop: {e}")
-                await asyncio.sleep(300)  # 5 минут при ошибке
+                keyboard_buttons.append([
+                    InlineKeyboardButton(
+                        text=f"📊 Сигнал #{i}",
+                        callback_data=f"signal_{signal.id}"
+                    )
+                ])
+            
+            keyboard_buttons.append([
+                InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")
+            ])
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+            await callback.message.edit_text(text, reply_markup=keyboard)
+            
+        except Exception as e:
+            logger.error(f"Error in cb_signals: {e}")
+            await callback.message.edit_text(
+                "❌ Ошибка загрузки сигналов",
+                reply_markup=self.get_back_keyboard("main_menu")
+            )
     
-    async def start(self):
+    async def cb_stats(self, callback: CallbackQuery):
+        """Статистика"""
+        await callback.answer()
+        
+        try:
+            # Получаем статистику
+            stats = await signal_generator.get_signal_statistics()
+            performance = await signal_generator.analyze_signal_performance(days=7)
+            
+            text = (
+                "<b>📊 Статистика AIBET</b>\n\n"
+                f"📢 Всего сигналов: <b>{stats.get('total_signals', 0)}</b>\n"
+                f"🔫 CS2 сигналы: <b>{stats.get('cs2_signals', 0)}</b>\n"
+                f"🏒 КХЛ сигналы: <b>{stats.get('khl_signals', 0)}</b>\n"
+                f"📈 Средняя уверенность: <b>{stats.get('avg_confidence', 0):.1%}</b>\n\n"
+                f"🎯 Точность за 7 дней: <b>{performance.get('accuracy', 0):.1f}%</b>\n"
+                f"✅ Успешных: <b>{performance.get('successful_signals', 0)}</b>\n"
+                f"📅 Сегодня: <b>{stats.get('today_signals', 0)}</b>\n\n"
+                "<i>🤖 AI работает с точностью >70%</i>"
+            )
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="🔄 Обновить", callback_data="stats"),
+                    InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")
+                ]
+            ])
+            
+            await callback.message.edit_text(text, reply_markup=keyboard)
+            
+        except Exception as e:
+            logger.error(f"Error in cb_stats: {e}")
+            await callback.message.edit_text(
+                "❌ Ошибка загрузки статистики",
+                reply_markup=self.get_back_keyboard("main_menu")
+            )
+    
+    async def cb_analyze(self, callback: CallbackQuery):
+        """AI анализ"""
+        await callback.answer()
+        
+        try:
+            # Получаем матчи с высокой уверенностью
+            high_confidence = await signal_generator.get_high_confidence_matches()
+            
+            if not high_confidence:
+                await callback.message.edit_text(
+                    "🤖 <b>AI анализ</b>\n\n"
+                    "Сейчас нет матчей с высокой уверенностью предсказания",
+                    reply_markup=self.get_back_keyboard("main_menu")
+                )
+                return
+            
+            text = f"🤖 <b>AI анализ матчей</b>\n\n"
+            
+            keyboard_buttons = []
+            for i, match_data in enumerate(high_confidence[:3], 1):
+                match = match_data['match']
+                prediction = match_data['prediction']
+                confidence = int(prediction['confidence'] * 100)
+                
+                text += f"{i}. <b>{match.team1}</b> vs <b>{match.team2}</b>\n"
+                text += f"🏆 {match.features.get('tournament', 'Unknown')}\n"
+                text += f"🎯 Прогноз: <b>{prediction['prediction']}</b>\n"
+                text += f"📊 Уверенность: <b>{confidence}%</b>\n\n"
+                
+                keyboard_buttons.append([
+                    InlineKeyboardButton(
+                        text=f"📊 Анализ матча #{i}",
+                        callback_data=f"match_{match.id}"
+                    )
+                ])
+            
+            keyboard_buttons.append([
+                InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")
+            ])
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+            await callback.message.edit_text(text, reply_markup=keyboard)
+            
+        except Exception as e:
+            logger.error(f"Error in cb_analyze: {e}")
+            await callback.message.edit_text(
+                "❌ Ошибка загрузки анализа",
+                reply_markup=self.get_back_keyboard("main_menu")
+            )
+    
+    async def cb_signal_details(self, callback: CallbackQuery):
+        """Детали сигнала"""
+        await callback.answer()
+        
+        try:
+            signal_id = int(callback.data.split("_")[1])
+            
+            # Получаем сигнал
+            signals = await db_manager.get_signals(limit=1000)
+            signal = next((s for s in signals if s.id == signal_id), None)
+            
+            if not signal:
+                await callback.message.edit_text("❌ Сигнал не найден")
+                return
+            
+            # Получаем матч
+            matches = await db_manager.get_matches(limit=1000)
+            match = next((m for m in matches if m.id == signal.match_id), None) if signal.match_id else None
+            
+            text = (
+                f"<b>📢 Детали сигнала</b>\n\n"
+                f"🏆 {signal.sport.upper()}\n\n"
+                f"{signal.signal}\n\n"
+                f"🎯 Уверенность: <b>{int(signal.confidence * 100)}%</b>\n"
+                f"🕐 Создан: <b>{signal.created_at.strftime('%d.%m.%Y %H:%M')}</b>\n"
+                f"📢 Опубликован: <b>{'Да' if signal.published else 'Нет'}</b>"
+            )
+            
+            if match:
+                text += f"\n\n📊 Матч: <b>{match.team1}</b> vs <b>{match.team2}</b>"
+                text += f"\n🏆 {match.features.get('tournament', 'Unknown')}"
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="🔙 Назад", callback_data="signals")
+                ]
+            ])
+            
+            await callback.message.edit_text(text, reply_markup=keyboard)
+            
+        except Exception as e:
+            logger.error(f"Error in cb_signal_details: {e}")
+            await callback.message.edit_text("❌ Ошибка загрузки деталей")
+    
+    async def cb_match_details(self, callback: CallbackQuery):
+        """Детали матча"""
+        await callback.answer()
+        
+        try:
+            match_id = int(callback.data.split("_")[1])
+            
+            # Получаем матч
+            matches = await db_manager.get_matches(limit=1000)
+            match = next((m for m in matches if m.id == match_id), None)
+            
+            if not match:
+                await callback.message.edit_text("❌ Матч не найден")
+                return
+            
+            # Получаем предсказание
+            from ml_models import ml_models
+            prediction = await ml_models.predict_match(match)
+            
+            status_emoji = "🔴" if match.status == "live" else "⏰" if match.status == "upcoming" else "✅"
+            
+            text = (
+                f"<b>📊 Детали матча</b>\n\n"
+                f"{status_emoji} <b>{match.team1}</b> vs <b>{match.team2}</b>\n"
+                f"🏆 {match.features.get('tournament', 'Unknown')}\n"
+                f"📊 Статус: <b>{match.status.upper()}</b>\n"
+                f"⚡ Счет: <b>{match.score or 'Не начат'}</b>\n\n"
+                f"🤖 <b>AI Прогноз</b>\n"
+                f"🎯 Победитель: <b>{prediction['prediction']}</b>\n"
+                f"📊 Уверенность: <b>{int(prediction['confidence'] * 100)}%</b>\n\n"
+                f"📈 <b>Анализ</b>\n"
+                f"{prediction['analysis']}"
+            )
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="🔙 Назад", callback_data="live_matches")
+                ]
+            ])
+            
+            await callback.message.edit_text(text, reply_markup=keyboard)
+            
+        except Exception as e:
+            logger.error(f"Error in cb_match_details: {e}")
+            await callback.message.edit_text("❌ Ошибка загрузки деталей")
+    
+    async def cb_settings(self, callback: CallbackQuery):
+        """Настройки"""
+        await callback.answer()
+        
+        text = (
+            "<b>⚙️ Настройки</b>\n\n"
+            "🔔 <b>Уведомления</b>\n"
+            "• Сигналы: Включены\n"
+            "• Live матчи: Включены\n\n"
+            "🎯 <b>Пороги</b>\n"
+            "• Мин. уверенность: 70%\n"
+            "• Максимум сигналов: 10/день\n\n"
+            "<i>Настройки доступны в Mini App</i>"
+        )
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🌐 Mini App", url="https://aibet-mini-prilozhenie.onrender.com"),
+                InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")
+            ]
+        ])
+        
+        await callback.message.edit_text(text, reply_markup=keyboard)
+    
+    async def show_admin_panel(self, message: Message):
+        """Панель администратора"""
+        try:
+            # Получаем статистику
+            stats = await signal_generator.get_signal_statistics()
+            
+            text = (
+                "<b>🔑 Панель администратора</b>\n\n"
+                f"📢 Всего сигналов: <b>{stats.get('total_signals', 0)}</b>\n"
+                f"📈 Опубликовано: <b>{stats.get('published_signals', 0)}</b>\n"
+                f"🎯 Точность: <b>{stats.get('avg_confidence', 0):.1%}</b>\n\n"
+                "<b>🔧 Управление:</b>\n"
+                "• /generate - Генерировать сигналы\n"
+                "• /publish - Опубликовать ожидающие\n"
+                "• /cleanup - Очистка старых данных\n"
+                "• /test - Тест публикации"
+            )
+            
+            await message.answer(text)
+            
+        except Exception as e:
+            logger.error(f"Error in admin panel: {e}")
+            await message.answer("❌ Ошибка загрузки панели")
+    
+    async def handle_message(self, message: Message):
+        """Обработка обычных сообщений"""
+        if message.text == "/start":
+            await self.cmd_start(message)
+        elif message.text == "🏠 Главное меню":
+            await self.cb_main_menu(message)
+        else:
+            # Показываем главное меню
+            keyboard = self.get_main_keyboard()
+            await message.answer("Используйте кнопки меню:", reply_markup=keyboard)
+    
+    def get_main_keyboard(self) -> ReplyKeyboardMarkup:
+        """Главное меню с кнопками"""
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[
+                [
+                    KeyboardButton(text="🔴 Live матчи"),
+                    KeyboardButton(text="🤖 AI анализ")
+                ],
+                [
+                    KeyboardButton(text="📢 Сигналы"),
+                    KeyboardButton(text="📊 Статистика")
+                ],
+                [
+                    KeyboardButton(text="🏠 Главное меню")
+                ]
+            ],
+            resize_keyboard=True,
+            one_time_keyboard=True
+        )
+        return keyboard
+    
+    def get_back_keyboard(self, callback_data: str) -> InlineKeyboardMarkup:
+        """Кнопка назад"""
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔙 Назад", callback_data=callback_data)
+            ]
+        ])
+    
+    async def start_polling(self):
         """Запуск бота"""
-        logger.info("🚀 Starting AIBOT Telegram Bot")
+        if not self._initialized:
+            await self.initialize()
         
-        # Инициализация базы данных
-        await self.db_manager.initialize()
-        
-        # Инициализация ML моделей
-        await self.ml_models.initialize_models()
-        
-        # Запуск авто-цикла сигналов
-        asyncio.create_task(self.auto_signal_loop())
-        
-        # Запуск поллинга
+        logger.info("🤖 Starting AIBOT polling...")
         await self.dp.start_polling(self.bot)
 
-# Запуск бота
-async def main():
-    bot = AIBOTTelegramBot()
-    await bot.start()
-
-if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())
+# Глобальный экземпляр бота
+def create_bot(bot_token: str, admin_id: int) -> AIBOTTelegramBot:
+    """Создание экземпляра бота"""
+    return AIBOTTelegramBot(bot_token, admin_id)
