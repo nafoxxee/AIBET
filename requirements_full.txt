@@ -25,7 +25,8 @@ lxml>=4.9.0
 requests>=2.31.0
 
 # Additional utilities
-pydantic>=2.4.1,<2.12
+pydantic>=2.4.1,<2.8
+pydantic-core>=2.14.0,<2.34
 click>=8.1.0
 pyyaml>=6.0
 jinja2>=3.1.0
@@ -34,7 +35,6 @@ markdown>=3.5.0
 # CORS and middleware
 aiohttp-cors>=0.7.0
 httpcore>=0.18.0
-pydantic-core>=2.14.0
 
 # Development and testing
 pytest>=7.4.3
