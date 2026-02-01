@@ -1,0 +1,83 @@
+services:
+  # AIBET MVP API Service
+  - type: web
+    name: aibet-mvp-api
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.mvp
+    dockerContext: .
+    buildCommand: "pip install -r requirements_mvp.txt"
+    startCommand: "python main_mvp.py"
+    envVars:
+      - key: PORT
+        value: 1000
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: SERVICE_TYPE
+        value: api
+    
+    # Health check
+    healthCheckPath: /api/health
+    
+    # Auto-deploy
+    autoDeploy: true
+    
+    # Disk storage
+    disk:
+      name: aibet-mvp-disk
+      mountPath: /tmp
+      sizeGB: 1
+    
+    # Region
+    regions:
+      - oregon
+    
+    # Scaling
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+      targetMemoryPercent: 80
+      targetCPUPercent: 80
+
+  # AIBET MVP Telegram Bot Service
+  - type: web
+    name: aibet-mvp-bot
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.mvp
+    dockerContext: .
+    buildCommand: "pip install -r requirements_mvp.txt"
+    startCommand: "python main_mvp.py"
+    envVars:
+      - key: PORT
+        value: 1001
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: SERVICE_TYPE
+        value: bot
+      - key: TELEGRAM_BOT_TOKEN
+        value: 8579178407:AAGr1hvHrApW7sgjg-SHbi_DpH53ZodS8-4
+      - key: ADMIN_ID
+        value: 379036860
+      - key: MINI_APP_URL
+        value: "https://aibet-mvp-api.onrender.com"
+    
+    # Auto-deploy
+    autoDeploy: true
+    
+    # Disk storage
+    disk:
+      name: aibet-mvp-bot-disk
+      mountPath: /tmp
+      sizeGB: 1
+    
+    # Region
+    regions:
+      - oregon
+    
+    # Scaling
+    scaling:
+      minInstances: 1
+      maxInstances: 1
+      targetMemoryPercent: 80
+      targetCPUPercent: 80
