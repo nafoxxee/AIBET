@@ -54,6 +54,12 @@ class SignalGenerator:
             upcoming_matches = await db_manager.get_matches(status="upcoming", limit=20)
             
             all_matches = live_matches + upcoming_matches
+            
+            # Проверяем, что есть реальные матчи
+            if not all_matches:
+                logger.info("⚠️ No real matches available for signal generation")
+                return []
+            
             logger.info(f"📊 Analyzing {len(live_matches)} live and {len(upcoming_matches)} upcoming matches")
             
             generated_signals = []
@@ -85,7 +91,12 @@ class SignalGenerator:
                     logger.warning(f"⚠️ Error processing match {match.team1} vs {match.team2}: {e}")
                     continue
             
-            logger.info(f"🎯 Generated {len(generated_signals)} new signals")
+            # Логируем только если есть сигналы
+            if generated_signals:
+                logger.info(f"🎯 Generated {len(generated_signals)} new signals")
+            else:
+                logger.info("🎯 No signals generated (confidence < 70% or insufficient data)")
+            
             return generated_signals
             
         except Exception as e:

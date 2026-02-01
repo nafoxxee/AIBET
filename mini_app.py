@@ -160,7 +160,8 @@ class AIBETMiniApp:
                     "matches": [],
                     "total": 0,
                     "ml_ready": False,
-                    "status": "Service initializing",
+                    "status": "No live matches available",
+                    "reason": "Service initializing or no data",
                     "error": str(e)
                 }
         
@@ -194,6 +195,8 @@ class AIBETMiniApp:
                 return {
                     "signals": [],
                     "total": 0,
+                    "status": "No signals available",
+                    "reason": "Service initializing or no data",
                     "error": str(e)
                 }
         
@@ -567,15 +570,21 @@ class AIBETMiniApp:
             
             try {
                 const response = await fetch('/api/live-matches');
-                const matches = await response.json();
+                const data = await response.json();
                 
-                if (matches.length === 0) {
-                    container.innerHTML = '<p class="text-center">Нет активных матчей</p>';
+                if (data.matches.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center">
+                            <i class="fas fa-broadcast-tower fa-3x mb-3" style="color: var(--text-secondary);"></i>
+                            <h5>Нет live матчей</h5>
+                            <p class="text-muted">${data.reason || 'Собираем данные...'}</p>
+                        </div>
+                    `;
                     return;
                 }
                 
                 let html = '';
-                matches.forEach(match => {
+                data.matches.forEach(match => {
                     html += `
                         <div class="stat-card mb-3">
                             <h5>${match.team1} vs ${match.team2}</h5>
@@ -587,7 +596,13 @@ class AIBETMiniApp:
                 
                 container.innerHTML = html;
             } catch (error) {
-                container.innerHTML = '<p class="text-center">Ошибка загрузки матчей</p>';
+                container.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-3 text-warning"></i>
+                        <h5>Ошибка загрузки</h5>
+                        <p class="text-muted">Попробуйте обновить страницу</p>
+                    </div>
+                `;
             }
         }
 
@@ -597,15 +612,21 @@ class AIBETMiniApp:
             
             try {
                 const response = await fetch('/api/signals');
-                const signals = await response.json();
+                const data = await response.json();
                 
-                if (signals.length === 0) {
-                    container.innerHTML = '<p class="text-center">Нет сигналов</p>';
+                if (data.signals.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center">
+                            <i class="fas fa-bullhorn fa-3x mb-3" style="color: var(--text-secondary);"></i>
+                            <h5>Нет сигналов</h5>
+                            <p class="text-muted">${data.reason || 'Собираем данные для анализа...'}</p>
+                        </div>
+                    `;
                     return;
                 }
                 
                 let html = '';
-                signals.forEach(signal => {
+                data.signals.forEach(signal => {
                     html += `
                         <div class="stat-card mb-3">
                             <h6>${signal.sport.toUpperCase()}</h6>
@@ -620,7 +641,13 @@ class AIBETMiniApp:
                 
                 container.innerHTML = html;
             } catch (error) {
-                container.innerHTML = '<p class="text-center">Ошибка загрузки сигналов</p>';
+                container.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-3 text-warning"></i>
+                        <h5>Ошибка загрузки</h5>
+                        <p class="text-muted">Попробуйте обновить страницу</p>
+                    </div>
+                `;
             }
         }
 

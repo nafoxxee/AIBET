@@ -21,21 +21,83 @@ class CS2Parser:
         self.base_url = "https://www.hltv.org"
         self.matches_url = "https://www.hltv.org/matches"
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
         }
+        self.api_mirrors = [
+            "https://hltv-api.vercel.app/api/matches",
+            "https://api.hltv.org/v1/matches",
+            "https://json.hltv-api.com/matches"
+        ]
     
     async def fetch_page(self, session: aiohttp.ClientSession, url: str) -> Optional[str]:
-        """Загрузка страницы с обработкой ошибок"""
+        """Загрузка страницы с обработкой ошибок и retry"""
+        for attempt in range(3):
+            try:
+                async with session.get(url, headers=self.headers, timeout=aiohttp.ClientTimeout(total=15)) as response:
+                    if response.status == 200:
+                        return await response.text()
+                    elif response.status == 403:
+                        logger.warning(f"HTTP 403 for {url}, trying API mirrors")
+                        return await self.try_api_mirrors(session)
+                    else:
+                        logger.warning(f"HTTP {response.status} for {url} (attempt {attempt + 1})")
+                        if attempt < 2:
+                            await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                        continue
+            except Exception as e:
+                logger.warning(f"Attempt {attempt + 1} failed for {url}: {e}")
+                if attempt < 2:
+                    await asyncio.sleep(1)
+                continue
+        
+        return None
+    
+    async def try_api_mirrors(self, session: aiohttp.ClientSession) -> Optional[str]:
+        """Попытка получить данные через API mirrors"""
+        for mirror_url in self.api_mirrors:
+            try:
+                async with session.get(mirror_url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        logger.info(f"✅ Got data from API mirror: {mirror_url}")
+                        return await self.parse_api_data(data)
+            except Exception as e:
+                logger.warning(f"API mirror {mirror_url} failed: {e}")
+                continue
+        
+        return None
+    
+    async def parse_api_data(self, data: dict) -> Optional[str]:
+        """Парсинг данных из API и возврат HTML формата"""
         try:
-            async with session.get(url, headers=self.headers, timeout=aiohttp.ClientTimeout(total=15)) as response:
-                if response.status == 200:
-                    return await response.text()
-                else:
-                    logger.warning(f"HTTP {response.status} for {url}")
-                    return None
+            if 'matches' in data and data['matches']:
+                # Создаем простой HTML из API данных
+                html_content = "<html><body>"
+                for match in data['matches'][:20]:
+                    team1 = match.get('team1', {}).get('name', 'Team 1')
+                    team2 = match.get('team2', {}).get('name', 'Team 2')
+                    event = match.get('event', {}).get('name', 'Unknown Event')
+                    
+                    html_content += f"""
+                    <div class="match" data-match-id="{match.get('id', 'unknown')}">
+                        <div class="event-name">{event}</div>
+                        <div class="team-name">{team1}</div>
+                        <div class="team-name">{team2}</div>
+                        <div class="time">{match.get('time', 'TBD')}</div>
+                        <div class="status">{match.get('status', 'upcoming')}</div>
+                    </div>
+                    """
+                html_content += "</body></html>"
+                return html_content
         except Exception as e:
-            logger.error(f"Error fetching {url}: {e}")
-            return None
+            logger.warning(f"Error parsing API data: {e}")
+        
+        return None
     
     async def parse_matches(self) -> List[Match]:
         """Парсинг матчей"""
@@ -45,8 +107,8 @@ class CS2Parser:
             async with aiohttp.ClientSession() as session:
                 html = await self.fetch_page(session, self.matches_url)
                 if not html:
-                    logger.warning("⚠️ Failed to fetch HLTV matches page, using fallback")
-                    return await self.get_fallback_matches()
+                    logger.warning("⚠️ Failed to fetch HLTV matches page, no real data available")
+                    return []  # Возвращаем пустой список вместо fallback
                 
                 soup = BeautifulSoup(html, 'html.parser')
                 matches = []
@@ -96,7 +158,7 @@ class CS2Parser:
                 
         except Exception as e:
             logger.exception(f"❌ Error parsing CS2 matches: {e}")
-            return await self.get_fallback_matches()
+            return []  # Возвращаем пустой список вместо fallback
     
     async def parse_match_element(self, element) -> Optional[Match]:
         """Парсинг отдельного элемента матча"""
@@ -196,49 +258,9 @@ class CS2Parser:
             return None
     
     async def get_fallback_matches(self) -> List[Match]:
-        """Резервные матчи, если парсинг не удался"""
-        logger.info("🔴 Using fallback CS2 matches")
-        
-        fallback_matches = [
-            Match(
-                sport="cs2",
-                team1="NAVI",
-                team2="FaZe",
-                score="",
-                status="upcoming",
-                start_time=datetime.utcnow() + timedelta(hours=2),
-                features={"tournament": "ESL Pro League", "importance": 8, "format": "BO3"}
-            ),
-            Match(
-                sport="cs2",
-                team1="G2",
-                team2="Vitality",
-                score="",
-                status="upcoming",
-                start_time=datetime.utcnow() + timedelta(hours=4),
-                features={"tournament": "BLAST Premier", "importance": 9, "format": "BO3"}
-            ),
-            Match(
-                sport="cs2",
-                team1="Astralis",
-                team2="Heroic",
-                score="16-14",
-                status="live",
-                start_time=datetime.utcnow(),
-                features={"tournament": "IEM Katowice", "importance": 10, "format": "BO3"}
-            ),
-            Match(
-                sport="cs2",
-                team1="Liquid",
-                team2="Cloud9",
-                score="2-1",
-                status="finished",
-                start_time=datetime.utcnow() - timedelta(hours=1),
-                features={"tournament": "ESL One", "importance": 7, "format": "BO3"}
-            )
-        ]
-        
-        return fallback_matches
+        """Резервные матчи - отключены, используем только реальные данные"""
+        logger.warning("🔴 Fallback matches disabled - using only real data")
+        return []
     
     async def update_matches(self):
         """Обновление матчей"""

@@ -32,6 +32,12 @@ class TelegramPublisher:
             
         logger.info("📱 Initializing Telegram Publisher")
         
+        # Проверяем токен ДО создания бота
+        if not self.bot_token:
+            logger.warning("Telegram publisher disabled: token missing")
+            self._initialized = True  # Помечаем как инициализированный, но отключенный
+            return
+        
         try:
             # Инициализируем бот
             self.bot = Bot(token=self.bot_token)
@@ -44,13 +50,18 @@ class TelegramPublisher:
             logger.info("✅ Telegram Publisher initialized successfully")
             
         except Exception as e:
-            logger.error(f"Error initializing Telegram Publisher: {e}")
-            raise
+            logger.warning(f"Telegram publisher disabled: {e}")
+            self._initialized = True  # Помечаем как инициализированный, но отключенный
     
     async def publish_signal(self, signal: Signal) -> bool:
         """Публикация сигнала в соответствующий канал"""
         if not self._initialized:
             await self.initialize()
+        
+        # Проверяем, что бот доступен
+        if not self.bot:
+            logger.warning("Cannot publish signal: bot not available")
+            return False
         
         try:
             # Определяем канал

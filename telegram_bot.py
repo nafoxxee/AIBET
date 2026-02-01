@@ -48,22 +48,30 @@ class AIBOTTelegramBot:
         """Регистрация всех хендлеров"""
         logger.info("🔧 Registering bot handlers")
         
-        # Команды
-        self.dp.message.register(self.cmd_start, Command("start"))
-        self.dp.message.register(self.cmd_help, Command("help"))
-        self.dp.message.register(self.cmd_signals, Command("signals"))
-        self.dp.message.register(self.cmd_stats, Command("stats"))
-        self.dp.message.register(self.cmd_analyze, Command("analyze"))
-        self.dp.message.register(self.cmd_admin, Command("admin"))
-        
-        # Inline кнопки
-        self.dp.callback_query.register(self.callback_main, F.data == "main")
-        self.dp.callback_query.register(self.callback_analyze, F.data == "analyze")
-        self.dp.callback_query.register(self.callback_live, F.data == "live")
-        self.dp.callback_query.register(self.callback_signals, F.data == "signals")
-        self.dp.callback_query.register(self.callback_stats, F.data == "stats")
-        
-        logger.info("✅ All handlers registered")
+        try:
+            # Команды
+            self.dp.message.register(self.cmd_start, Command("start"))
+            self.dp.message.register(self.cmd_help, Command("help"))
+            self.dp.message.register(self.cmd_signals, Command("signals"))
+            self.dp.message.register(self.cmd_stats, Command("stats"))
+            self.dp.message.register(self.cmd_analyze, Command("analyze"))
+            self.dp.message.register(self.cmd_admin, Command("admin"))
+            
+            # Inline кнопки
+            self.dp.callback_query.register(self.callback_main, F.data == "main")
+            self.dp.callback_query.register(self.callback_analyze, F.data == "analyze")
+            self.dp.callback_query.register(self.callback_live, F.data == "live")
+            self.dp.callback_query.register(self.callback_signals, F.data == "signals")
+            self.dp.callback_query.register(self.callback_stats, F.data == "stats")
+            
+            # Любые другие сообщения
+            self.dp.message.register(self.handle_message)
+            
+            logger.info("✅ All handlers registered")
+            
+        except Exception as e:
+            logger.warning("⚠️ Handler registration failed, continuing bot startup")
+            logger.exception(f"Handler registration error: {e}")
     
     async def initialize(self):
         """Инициализация бота"""
@@ -500,10 +508,58 @@ class AIBOTTelegramBot:
         await callback.answer()
         await self.cmd_stats(callback.message)
     
-    async def cb_analyze(self, callback):
+    async def callback_main(self, callback: CallbackQuery):
+        """Главное меню"""
+        await callback.answer()
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🚀 Открыть AIBET Mini App",
+                    web_app=WebAppInfo(
+                        url="https://aibet-mini-prilozhenie.onrender.com"
+                    )
+                )
+            ],
+            [
+                InlineKeyboardButton(text="📊 Анализ", callback_data="analyze"),
+                InlineKeyboardButton(text="🔴 Live", callback_data="live_matches")
+            ],
+            [
+                InlineKeyboardButton(text="🎯 Сигналы", callback_data="signals"),
+                InlineKeyboardButton(text="📈 Статистика", callback_data="stats")
+            ],
+            [
+                InlineKeyboardButton(text="⚙ Настройки", callback_data="settings")
+            ]
+        ])
+        
+        menu_text = (
+            "<b>🏠 Главное меню</b>\n\n"
+            "Выберите интересующий раздел:"
+        )
+        
+        await callback.message.edit_text(menu_text, reply_markup=keyboard)
+    
+    async def callback_analyze(self, callback: CallbackQuery):
         """Анализ"""
         await callback.answer()
         await self.cmd_analyze(callback.message)
+    
+    async def callback_live(self, callback: CallbackQuery):
+        """Live матчи"""
+        await callback.answer()
+        await self.cmd_live(callback.message)
+    
+    async def callback_signals(self, callback: CallbackQuery):
+        """Сигналы"""
+        await callback.answer()
+        await self.cmd_signals(callback.message)
+    
+    async def callback_stats(self, callback: CallbackQuery):
+        """Статистика"""
+        await callback.answer()
+        await self.cmd_stats(callback.message)
     
     async def handle_message(self, message: Message):
         """Обработка других сообщений"""
