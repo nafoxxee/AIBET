@@ -7,8 +7,7 @@ import os
 import sqlite3
 import logging
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
 from contextlib import contextmanager
 from typing import Generator
 
@@ -16,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 # Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./aibet_mvp.db")
+
+# SQLAlchemy 2.0+ compatible Base
+class Base(DeclarativeBase):
+    pass
 
 # SQLAlchemy setup
 engine = create_engine(
@@ -25,7 +28,6 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
 def get_db() -> Generator[Session, None, None]:
     """Get database session"""
@@ -200,5 +202,4 @@ async def load_historical_data(db: Session):
         logger.error(f"❌ Error loading historical data: {e}")
         raise
 
-# Import models after Base is defined
-from .models import Team, Match, TeamStats, Signal, ModelMetrics, Prediction
+# Import models will be done in __init__.py to avoid circular imports

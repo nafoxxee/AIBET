@@ -3,14 +3,14 @@ AIBET MVP Database Module
 SQLite database with historical data
 """
 
-from .connection import get_db, init_database
+from .connection import get_db, init_database, Base
 from .models import (
-    Base, Match, Team, TeamStats, Signal, 
+    Team, Match, TeamStats, Signal, 
     ModelMetrics, Prediction
 )
 
 __all__ = [
-    'get_db', 'init_database',
-    'Base', 'Match', 'Team', 'TeamStats', 
+    'get_db', 'init_database', 'Base',
+    'Team', 'Match', 'TeamStats', 
     'Signal', 'ModelMetrics', 'Prediction'
 ]

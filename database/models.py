@@ -4,12 +4,12 @@ SQLAlchemy models for SQLite database
 """
 
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, ForeignKey, JSON
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from typing import Optional
 
-Base = declarative_base()
+# Import Base from connection module
+from .connection import Base
 
 class Team(Base):
     """Team information"""

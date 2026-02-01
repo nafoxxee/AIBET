@@ -75,10 +75,13 @@ class AIBETMVP:
             import uvicorn
             from api.main import app
             
+            # Use PORT from environment (Render sets this)
+            port = int(os.getenv("PORT", 1000))
+            
             config = uvicorn.Config(
                 app,
                 host="0.0.0.0",
-                port=1000,
+                port=port,
                 log_level="info",
                 access_log=True
             )

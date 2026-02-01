@@ -6,7 +6,6 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile.mvp
     dockerContext: .
-    buildCommand: "pip install -r requirements_mvp.txt"
     startCommand: "python main_mvp.py"
     envVars:
       - key: PORT
@@ -46,7 +45,6 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile.mvp
     dockerContext: .
-    buildCommand: "pip install -r requirements_mvp.txt"
     startCommand: "python main_mvp.py"
     envVars:
       - key: PORT
