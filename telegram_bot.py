@@ -226,6 +226,12 @@ class AIBOTTelegramBot:
         logger.info(f"🤖 /analyze command from user {message.from_user.id}")
         
         try:
+            # Проверяем доступность ML моделей
+            if not ml_models._initialized or not ml_models.rf_model or not ml_models.lr_model:
+                await message.answer("🤖 ML модель в обучении. Попробуйте позже.")
+                logger.info(f"🤖 ML not ready for user {message.from_user.id}")
+                return
+            
             # Получаем матчи с высокой уверенностью
             matches = await db_manager.get_matches(status="upcoming", limit=5)
             
@@ -239,12 +245,17 @@ class AIBOTTelegramBot:
             for i, match in enumerate(matches[:3], 1):
                 # Получаем предсказание
                 prediction = await ml_models.predict_match(match)
-                confidence = int(prediction['confidence'] * 100)
                 
-                text += f"{i}. <b>{match.team1}</b> vs <b>{match.team2}</b>\n"
-                text += f"🏆 {match.features.get('tournament', 'Unknown')}\n"
-                text += f"🎯 Прогноз: <b>{prediction['prediction']}</b>\n"
-                text += f"📊 Уверенность: <b>{confidence}%</b>\n\n"
+                if not prediction:
+                    text += f"{i}. <b>{match.team1}</b> vs <b>{match.team2}</b>\n"
+                    text += f"🏆 {match.features.get('tournament', 'Unknown')}\n"
+                    text += f"⚠️ Анализ недоступен\n\n"
+                else:
+                    confidence = int(prediction['confidence'] * 100)
+                    text += f"{i}. <b>{match.team1}</b> vs <b>{match.team2}</b>\n"
+                    text += f"🏆 {match.features.get('tournament', 'Unknown')}\n"
+                    text += f"🎯 Прогноз: <b>{prediction['prediction']}</b>\n"
+                    text += f"📊 Уверенность: <b>{confidence}%</b>\n\n"
             
             await message.answer(text)
             logger.info(f"✅ Analysis sent to user {message.from_user.id} ({len(matches)} matches)")

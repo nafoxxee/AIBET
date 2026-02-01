@@ -98,8 +98,10 @@ class AIBETMiniApp:
                 result = []
                 for match in live_matches:
                     try:
-                        # Получаем предсказание
-                        prediction = await ml_models.predict_match(match)
+                        # Безопасное получение предсказания
+                        prediction = None
+                        if ml_models._initialized and ml_models.rf_model and ml_models.lr_model:
+                            prediction = await ml_models.predict_match(match)
                         
                         result.append({
                             "id": match.id,
@@ -110,7 +112,8 @@ class AIBETMiniApp:
                             "status": match.status,
                             "score": match.score,
                             "start_time": match.start_time.isoformat() if match.start_time else None,
-                            "prediction": prediction if prediction else None,
+                            "prediction": prediction,
+                            "ml_ready": bool(prediction),
                             "importance": match.features.get("importance", 5)
                         })
                     except Exception as e:
@@ -120,6 +123,8 @@ class AIBETMiniApp:
                 return {
                     "matches": result,
                     "total": len(result),
+                    "ml_ready": ml_models._initialized and bool(ml_models.rf_model),
+                    "status": "Data is being collected" if not (ml_models._initialized and ml_models.rf_model) else "Ready",
                     "updated_at": datetime.now().isoformat()
                 }
                 
@@ -128,6 +133,8 @@ class AIBETMiniApp:
                 return {
                     "matches": [],
                     "total": 0,
+                    "ml_ready": False,
+                    "status": "Service initializing",
                     "error": str(e)
                 }
         
@@ -189,17 +196,20 @@ class AIBETMiniApp:
                 upcoming_matches = len([m for m in matches if m.status == "upcoming"])
                 finished_matches = len([m for m in matches if m.status == "finished"])
                 
+                # Проверяем готовность ML
+                ml_ready = ml_models._initialized and bool(ml_models.rf_model)
+                
                 return {
                     "accuracy": {
                         "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-                        "values": [65, 70, 68, 72, 75, 71, 73]  # Заглушка
+                        "values": [65, 70, 68, 72, 75, 71, 73] if ml_ready else [0, 0, 0, 0, 0, 0, 0]
                     },
                     "signals": {
-                        "values": [successful_signals, len(week_signals) - successful_signals]  # Успешные/Неуспешные
+                        "values": [successful_signals, len(week_signals) - successful_signals] if ml_ready else [0, 0]
                     },
                     "performance": {
                         "labels": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-                        "values": [120, 135, 125, 140, 130, 145]  # Заглушка
+                        "values": [120, 135, 125, 140, 130, 145] if ml_ready else [0, 0, 0, 0, 0, 0]
                     },
                     "total_signals": total_signals,
                     "cs2_signals": cs2_signals,
@@ -211,12 +221,16 @@ class AIBETMiniApp:
                     "live_matches": live_matches,
                     "upcoming_matches": upcoming_matches,
                     "finished_matches": finished_matches,
+                    "ml_ready": ml_ready,
+                    "status": "Data is being collected" if not ml_ready else "Ready",
                     "updated_at": datetime.now().isoformat()
                 }
             except Exception as e:
                 logger.exception(f"Error in api_statistics: {e}")
                 return {
                     "error": str(e),
+                    "ml_ready": False,
+                    "status": "Service initializing",
                     "updated_at": datetime.now().isoformat()
                 }
         

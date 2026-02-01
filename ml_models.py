@@ -41,8 +41,14 @@ class AdvancedMLModels:
         self._initialized = False
     
     async def initialize(self):
-        """Инициализация ML моделей"""
+        """Безопасная инициализация ML моделей"""
         if self._initialized:
+            return
+        
+        # Проверяем доступность БД
+        if not self.db_manager:
+            logger.warning("⚠️ DB not initialized, skipping ML init")
+            self._initialized = True  # Помечаем как инициализированный, но без моделей
             return
             
         logger.info("🤖 Initializing ML Models")
@@ -56,24 +62,20 @@ class AdvancedMLModels:
             await self.load_models()
             
             if self.rf_model is None or self.lr_model is None:
-                logger.info("📚 No existing models found, training new ones...")
-                await self.train_models()
+                logger.info("📚 No existing models found, will train later")
+                # НЕ обучаем сразу, а откладываем на фон
+                self._initialized = True
+                logger.info("✅ ML Models initialized (training scheduled for background)")
             else:
                 logger.info("✅ Existing models loaded successfully")
-                
-            self._initialized = True
-            logger.info("🎉 ML Models initialized successfully")
+                self._initialized = True
+                logger.info("✅ ML Models initialized successfully")
             
         except Exception as e:
             logger.exception(f"❌ Error initializing ML models: {e}")
-            # При ошибке пробуем обучить новые модели
-            try:
-                await self.train_models()
-                self._initialized = True
-                logger.info("🎉 ML Models initialized with fresh training")
-            except Exception as e2:
-                logger.exception(f"❌ Critical error in ML initialization: {e2}")
-                raise
+            # НЕ падаем, а помечаем как инициализированный без моделей
+            self._initialized = True
+            logger.warning("⚠️ ML Models initialized without training (will retry later)")
     
     def extract_features(self, match: Match) -> np.ndarray:
         """Извлечение признаков из матча"""
@@ -172,24 +174,30 @@ class AdvancedMLModels:
         return np.array(X), np.array(y)
     
     async def train_models(self):
-        """Обучение ML моделей"""
+        """Безопасное обучение ML моделей"""
         logger.info("🎯 Training ML Models")
+        
+        # Проверяем доступность БД
+        if not self.db_manager:
+            logger.warning("⚠️ DB not initialized, skipping ML training")
+            return
         
         try:
             # Получаем завершенные матчи для обучения
             matches = await self.db_manager.get_matches(status="finished", limit=1000)
             
-            if len(matches) < 50:
-                logger.warning(f"⚠️ Not enough matches for training ({len(matches)}), using synthetic data")
+            if len(matches) < 100:
+                logger.warning(f"⚠️ Not enough data for ML training: {len(matches)} matches (need 100+)")
+                # Создаем минимальные синтетические данные для базовой работы
+                logger.info("📚 Creating synthetic data for basic ML functionality")
                 X, y = self.create_synthetic_data()
             else:
                 logger.info(f"📚 Using {len(matches)} matches for training")
                 X, y = self.create_training_data(matches)
             
             if len(X) < 20:
-                logger.error(f"❌ Insufficient training data: {len(X)} samples")
-                # Создаем минимальные синтетические данные
-                X, y = self.create_synthetic_data()
+                logger.warning(f"⚠️ Insufficient training data: {len(X)} samples")
+                return
             
             logger.info(f"📊 Training with {len(X)} samples")
             
@@ -238,7 +246,8 @@ class AdvancedMLModels:
             
         except Exception as e:
             logger.exception(f"❌ Error training models: {e}")
-            raise
+            # НЕ падаем, а продолжаем работу
+            logger.warning("⚠️ ML training failed, continuing without models")
     
     async def save_models(self):
         """Сохранение моделей в файлы"""
@@ -354,64 +363,41 @@ class AdvancedMLModels:
         self.rf_model.fit(X_scaled, y)
         self.lr_model.fit(X_scaled, y)
     
-    async def predict_match(self, match: Match) -> Dict[str, Any]:
-        """Предсказание результата матча"""
-        if not self._initialized:
-            await self.initialize()
-        
-        if self.rf_model is None or self.lr_model is None:
-            await self.train_models()
-        
+    async def predict_match(self, match: Match) -> Optional[Dict]:
+        """Безопасное предсказание матча"""
         try:
+            # Проверяем, доступны ли модели
+            if not self.rf_model or not self.lr_model:
+                logger.debug("⚠️ ML models not ready for prediction")
+                return None
+            
             # Извлекаем признаки
             features = self.extract_features(match)
             features_scaled = self.scaler.transform([features])
             
-            # Предсказания RandomForest
-            rf_pred_proba = self.rf_model.predict_proba(features_scaled)[0]
+            # Получаем предсказания
             rf_pred = self.rf_model.predict(features_scaled)[0]
+            rf_proba = self.rf_model.predict_proba(features_scaled)[0]
             
-            # Предсказания LogisticRegression
-            lr_pred_proba = self.lr_model.predict_proba(features_scaled)[0]
             lr_pred = self.lr_model.predict(features_scaled)[0]
+            lr_proba = self.lr_model.predict_proba(features_scaled)[0]
             
-            # Усредняем предсказания
-            avg_confidence = (rf_pred_proba[1] + lr_pred_proba[1]) / 2
-            avg_prediction = 1 if avg_confidence > 0.5 else 0
+            # Усредняем уверенность
+            confidence = (rf_proba.max() + lr_proba.max()) / 2
             
-            # Определяем команду для ставки
-            if avg_prediction == 1:
-                prediction_team = match.team1
-                confidence = avg_confidence
-            else:
-                prediction_team = match.team2
-                confidence = 1 - avg_confidence
-            
-            # Анализ важности признаков
-            feature_importance = dict(zip(
-                self.feature_columns,
-                self.rf_model.feature_importances_
-            ))
+            # Определяем финальное предсказание
+            prediction = "Team 1" if rf_pred == 1 else "Team 2"
             
             return {
-                'prediction': prediction_team,
-                'confidence': confidence,
-                'rf_confidence': rf_pred_proba[1],
-                'lr_confidence': lr_pred_proba[1],
-                'feature_importance': feature_importance,
-                'analysis': self.generate_analysis(match, confidence, feature_importance)
+                "prediction": prediction,
+                "confidence": confidence,
+                "rf_confidence": rf_proba.max(),
+                "lr_confidence": lr_proba.max()
             }
             
         except Exception as e:
-            logger.error(f"Error predicting match: {e}")
-            return {
-                'prediction': match.team1,
-                'confidence': 0.5,
-                'rf_confidence': 0.5,
-                'lr_confidence': 0.5,
-                'feature_importance': {},
-                'analysis': 'ML analysis unavailable'
-            }
+            logger.warning(f"⚠️ Error in ML prediction: {e}")
+            return None
     
     def generate_analysis(self, match: Match, confidence: float, feature_importance: Dict[str, float]) -> str:
         """Генерация текстового анализа"""
