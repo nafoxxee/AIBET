@@ -41,7 +41,13 @@ except Exception as e:
 
 from signal_generator import signal_generator
 
+# Настройка логирования
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 class AIBETMiniApp:
     def __init__(self, db_manager_instance, ml_models_instance):
@@ -58,9 +64,9 @@ class AIBETMiniApp:
             allow_headers=["*"],
         )
         
-        # Инициализация парсеров
-        self.cs2_parser = CS2Parser()
-        self.khl_parser = KHLParser()
+        # Инициализация парсеров (безопасная)
+        self.cs2_parser = cs2_parser if CS2_PARSER_AVAILABLE else None
+        self.khl_parser = khl_parser if KHL_PARSER_AVAILABLE else None
         
         # Роуты
         self.setup_routes()
