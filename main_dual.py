@@ -62,27 +62,34 @@ async def initialize_components(db_manager):
     """Инициализация всех компонентов с правильным порядком"""
     logger.info("🔧 Initializing components")
     
+    service_type = os.getenv('SERVICE_TYPE', 'web')
+    logger.info(f"🔧 Service type: {service_type}")
+    
     try:
-        # 1. Инициализируем ML модели с db_manager
+        # 1. Инициализируем ML модели с db_manager (для обоих сервисов)
         from ml_models import AdvancedMLModels
         global ml_models
         ml_models = AdvancedMLModels(db_manager_instance=db_manager)
         await ml_models.initialize()
         logger.info("✅ ML Models initialized")
         
-        # 2. Инициализируем Telegram Bot
-        from telegram_bot import AIBOTTelegramBot
-        global telegram_bot
-        bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-        admin_id = int(os.getenv("ADMIN_ID", "379036860"))
-        telegram_bot = AIBOTTelegramBot(bot_token, admin_id, db_manager)
-        logger.info("✅ Telegram Bot initialized")
-        
-        # 3. Инициализируем Mini App
-        from mini_app import AIBETMiniApp
-        global mini_app
-        mini_app = AIBETMiniApp(db_manager, ml_models)
-        logger.info("✅ Mini App initialized")
+        if service_type == 'bot':
+            # ТОЛЬКО для Bot сервиса: инициализируем Telegram Bot
+            from telegram_bot import AIBOTTelegramBot
+            global telegram_bot
+            bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+            if not bot_token:
+                raise ValueError("TELEGRAM_BOT_TOKEN is required for bot service")
+            admin_id = int(os.getenv("ADMIN_ID", "379036860"))
+            telegram_bot = AIBOTTelegramBot(bot_token, admin_id, db_manager)
+            logger.info("✅ Telegram Bot initialized")
+            
+        elif service_type == 'web':
+            # ТОЛЬКО для Web сервиса: инициализируем Mini App
+            from mini_app import AIBETMiniApp
+            global mini_app
+            mini_app = AIBETMiniApp(db_manager, ml_models)
+            logger.info("✅ Mini App initialized")
         
         return True
         
@@ -188,8 +195,11 @@ async def main():
         
         if service_type == 'web':
             logger.info("📊 Starting AIBET Mini App Web Service")
-            from mini_app import main as web_main
-            await web_main()
+            # Запускаем Mini App с health сервером
+            await asyncio.gather(
+                mini_app.run(),
+                health_server()
+            )
             
         elif service_type == 'bot':
             logger.info("🤖 Starting AIBOT Telegram Bot Web Service")

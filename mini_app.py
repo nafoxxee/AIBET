@@ -19,15 +19,35 @@ import random
 # Импорты наших модулей
 from database import db_manager
 from ml_models import ml_models
-from parsers.cs2_parser import CS2Parser
-from parsers.khl_parser import KHLParser
+
+# Безопасный импорт парсеров
+try:
+    from parsers.cs2_parser import cs2_parser
+    CS2_PARSER_AVAILABLE = True
+    logger.info("✅ CS2 Parser imported successfully")
+except Exception as e:
+    logger.warning(f"⚠️ CS2 Parser import failed: {e}")
+    cs2_parser = None
+    CS2_PARSER_AVAILABLE = False
+
+try:
+    from parsers.khl_parser import khl_parser
+    KHL_PARSER_AVAILABLE = True
+    logger.info("✅ KHL Parser imported successfully")
+except Exception as e:
+    logger.warning(f"⚠️ KHL Parser import failed: {e}")
+    khl_parser = None
+    KHL_PARSER_AVAILABLE = False
+
 from signal_generator import signal_generator
 
 logger = logging.getLogger(__name__)
 
 class AIBETMiniApp:
-    def __init__(self):
+    def __init__(self, db_manager_instance, ml_models_instance):
         self.app = FastAPI(title="AIBET Analytics Platform", version="1.0.0")
+        self.db_manager = db_manager_instance
+        self.ml_models = ml_models_instance
         
         # Настройка CORS
         self.app.add_middleware(
@@ -650,25 +670,17 @@ class AIBETMiniApp:
 </html>
         """
 
-# Запуск приложения
-async def main():
-    # Инициализация базы данных
-    await db_manager.initialize()
-    
-    # Инициализация ML моделей
-    await ml_models.initialize()
-    
-    port = int(os.environ.get("PORT", 10000))
-    
-    config = uvicorn.Config(
-        AIBETMiniApp().app,
-        host="0.0.0.0",
-        port=port,
-        log_level="info"
-    )
-    
-    server = uvicorn.Server(config)
-    await server.serve()
-
-if __name__ == "__main__":
-    uvicorn.run("mini_app:main", host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    async def run(self):
+        """Запуск Mini App"""
+        port = int(os.getenv("PORT", 10000))
+        logger.info(f"🚀 Starting AIBET Mini App on port {port}")
+        
+        config = uvicorn.Config(
+            app=self.app,
+            host="0.0.0.0",
+            port=port,
+            log_level="info"
+        )
+        
+        server = uvicorn.Server(config)
+        await server.serve()

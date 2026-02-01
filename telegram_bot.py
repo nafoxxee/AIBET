@@ -14,7 +14,8 @@ from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.types import (
     Message, InlineKeyboardMarkup, 
-    InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+    InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton,
+    WebAppInfo
 )
 
 from database import db_manager
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Конфигурация
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "379036860"))
+MINI_APP_URL = "https://aibet-mini-prilozhenie.onrender.com/"
 
 class AIBOTTelegramBot:
     def __init__(self, bot_token: str, admin_id: int, db_manager_instance):
@@ -120,31 +122,43 @@ class AIBOTTelegramBot:
         try:
             # Регистрируем пользователя
             from database import User
-            user = User(telegram_id=message.from_user.id, is_admin=(message.from_user.id == ADMIN_ID))
-            await db_manager.add_user(user)
+            user = User(telegram_id=message.from_user.id, is_admin=(message.from_user.id == self.admin_id))
+            await self.db_manager.add_user(user)
             
             logger.info(f"✅ User {message.from_user.id} registered (admin: {user.is_admin})")
             
-            # Приветственное сообщение
-            welcome_text = (
-                "<b>🤖 Добро пожаловать в AIBET Analytics Platform!</b>\n\n"
-                "🎯 <b>AI-анализ матчей CS2 и КХЛ с точностью >70%</b>\n\n"
-                "📊 <b>Что я умею:</b>\n"
-                "• 🔴 Live матчи в реальном времени\n"
-                "• 🤖 AI анализ предстоящих игр\n"
-                "• 📢 Автоматические сигналы\n"
-                "• 📈 Подробная статистика\n\n"
-                "<i>Используйте кнопки ниже для навигации</i>"
+            # Главное меню с кнопкой Mini App
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="🚀 Открыть AIBET Mini App", web_app=WebAppInfo(url=MINI_APP_URL))
+                ],
+                [
+                    InlineKeyboardButton(text="📊 Анализ", callback_data="analyze"),
+                    InlineKeyboardButton(text="� Live", callback_data="live_matches")
+                ],
+                [
+                    InlineKeyboardButton(text="🎯 Сигналы", callback_data="signals"),
+                    InlineKeyboardButton(text="📈 Статистика", callback_data="stats")
+                ],
+                [
+                    InlineKeyboardButton(text="⚙ Настройки", callback_data="settings")
+                ]
+            ])
+            
+            await message.answer(
+                f"🎯 <b>Добро пожаловать в AIBET!</b>\n\n"
+                f"🤖 AI-анализ матчей CS2 и КХЛ\n"
+                f"📊 Статистика и прогнозы\n"
+                f"🎯 Автоматические сигналы\n\n"
+                f"Выберите действие ниже:",
+                reply_markup=keyboard
             )
             
-            keyboard = self.get_main_keyboard()
-            await message.answer(welcome_text, reply_markup=keyboard)
-            
-            logger.info(f"✅ Welcome message sent to user {message.from_user.id}")
+            logger.info(f"✅ Start message sent to user {message.from_user.id}")
             
         except Exception as e:
             logger.exception(f"❌ Error in cmd_start: {e}")
-            await message.answer("❌ Ошибка. Попробуйте позже.")
+            await message.answer("❌ Ошибка загрузки. Попробуйте позже.")
     
     async def cmd_help(self, message: Message):
         """Команда /help"""
@@ -312,12 +326,18 @@ class AIBOTTelegramBot:
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔴 Live матчи", callback_data="live_matches"),
-                InlineKeyboardButton(text="🤖 AI анализ", callback_data="analyze")
+                InlineKeyboardButton(text="🚀 Открыть AIBET Mini App", web_app=WebAppInfo(url=MINI_APP_URL))
             ],
             [
-                InlineKeyboardButton(text="📢 Сигналы", callback_data="signals"),
-                InlineKeyboardButton(text="📊 Статистика", callback_data="stats")
+                InlineKeyboardButton(text="📊 Анализ", callback_data="analyze"),
+                InlineKeyboardButton(text="🔥 Live", callback_data="live_matches")
+            ],
+            [
+                InlineKeyboardButton(text="🎯 Сигналы", callback_data="signals"),
+                InlineKeyboardButton(text="� Статистика", callback_data="stats")
+            ],
+            [
+                InlineKeyboardButton(text="⚙ Настройки", callback_data="settings")
             ]
         ])
         
