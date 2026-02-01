@@ -544,3 +544,18 @@ class AIBOTTelegramBot:
 def create_bot(bot_token: str, admin_id: int) -> AIBOTTelegramBot:
     """Создание экземпляра бота"""
     return AIBOTTelegramBot(bot_token, admin_id)
+
+# Обязательная функция main для импорта
+async def main():
+    """Основная функция запуска бота"""
+    import os
+    
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    admin_id = int(os.getenv("ADMIN_ID", "379036860"))
+    
+    if not bot_token:
+        raise ValueError("TELEGRAM_BOT_TOKEN not found in environment variables")
+    
+    # Создаем и запускаем бота
+    bot = create_bot(bot_token, admin_id)
+    await bot.start_polling()

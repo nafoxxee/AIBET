@@ -25,6 +25,27 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+async def health_server():
+    """Health сервер для Render (только для бота)"""
+    from fastapi import FastAPI
+    import uvicorn
+    
+    app = FastAPI()
+    
+    @app.get("/health")
+    async def health():
+        return {"status": "ok", "service": "bot", "timestamp": datetime.now().isoformat()}
+    
+    @app.get("/")
+    async def root():
+        return {"message": "AIBET Telegram Bot Health Check"}
+    
+    config = uvicorn.Config(app, host="0.0.0.0", port=10001, log_level="info")
+    server = uvicorn.Server(config)
+    
+    logger.info("🏥 Health server starting on port 10001")
+    await server.serve()
+
 async def main():
     """Главная функция запуска"""
     logger.info("🚀 Starting AIBET Analytics Platform")
@@ -39,7 +60,12 @@ async def main():
     elif service_type == 'bot':
         logger.info("🤖 Starting AIBOT Telegram Bot Web Service")
         from telegram_bot import main as bot_main
-        await bot_main()
+        
+        # Запускаем бота и health сервер параллельно
+        await asyncio.gather(
+            bot_main(),
+            health_server()
+        )
     else:
         logger.error(f"❌ Unknown service type: {service_type}")
         sys.exit(1)
