@@ -13,12 +13,9 @@ COPY requirements_full.txt .
 RUN pip install --no-cache-dir -r requirements_full.txt
 
 # Копирование кода
-COPY mini_app.py .
-COPY ai_models.py .
-COPY data_collector.py .
-COPY database.py .
-COPY config.py .
-COPY main_dual.py .
+COPY *.py ./
+COPY parsers/ ./parsers/
+COPY ml/ ./ml/
 
 # Создание необходимых директорий
 RUN mkdir -p logs tmp

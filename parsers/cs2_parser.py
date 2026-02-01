@@ -51,10 +51,38 @@ class CS2Parser:
                 soup = BeautifulSoup(html, 'html.parser')
                 matches = []
                 
-                # Ищем все матчи на странице
-                match_elements = soup.find_all('a', class_='match')
+                # Расширенный поиск матчей на HLTV
+                match_selectors = [
+                    'a.match',                    # Основные матчи
+                    'div.match',                  # Альтернативные матчи
+                    'div.matching',               # Live матчи
+                    'tr.match',                   # Матчи в таблицах
+                    'div[data-match-id]',         # Матчи с ID
+                    'a[href*="/match/"]',       # Ссылки на матчи
+                    'div.upcoming-match',         # Предстоящие матчи
+                    'div.live-match',             # Live матчи
+                    'div.completed-match'         # Завершенные матчи
+                ]
                 
-                for element in match_elements[:20]:  # Ограничиваем количество
+                all_elements = []
+                for selector in match_selectors:
+                    elements = soup.select(selector)
+                    if elements:
+                        all_elements.extend(elements)
+                        logger.info(f"🔴 Found {len(elements)} elements with selector: {selector}")
+                
+                # Убираем дубликаты
+                unique_elements = []
+                seen_texts = set()
+                for element in all_elements:
+                    text = element.get_text(strip=True)
+                    if text and text not in seen_texts and len(text) > 10:
+                        unique_elements.append(element)
+                        seen_texts.add(text)
+                
+                logger.info(f"🔴 Processing {len(unique_elements)} unique CS2 matches")
+                
+                for element in unique_elements[:30]:  # Увеличим лимит для реальных матчей
                     try:
                         match = await self.parse_match_element(element)
                         if match:

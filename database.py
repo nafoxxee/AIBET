@@ -387,5 +387,25 @@ class DatabaseManager:
             await db.commit()
             logger.info(f"🧹 Cleaned up data older than {days} days")
 
+    async def update_match_features(self, match_id: int, features: Dict[str, Any]):
+        """Обновление признаков матча"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                UPDATE matches SET features = ? WHERE id = ?
+            """, (json.dumps(features), match_id))
+            await db.commit()
+    
+    async def get_finished_matches(self, limit: int = 100) -> List[Match]:
+        """Получить завершенные матчи для обучения ML"""
+        return await self.get_matches(status="finished", limit=limit)
+    
+    async def get_upcoming_matches(self, limit: int = 50) -> List[Match]:
+        """Получить предстоящие матчи"""
+        return await self.get_matches(status="upcoming", limit=limit)
+    
+    async def get_live_matches(self, limit: int = 20) -> List[Match]:
+        """Получить live матчи"""
+        return await self.get_matches(status="live", limit=limit)
+
 # Глобальный экземпляр базы данных
 db_manager = DatabaseManager()

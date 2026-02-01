@@ -52,24 +52,45 @@ class KHLParser:
                 soup = BeautifulSoup(html, 'html.parser')
                 matches = []
                 
-                # Ищем матчи на странице
+                # Расширенный поиск матчей на KHL
                 match_selectors = [
-                    'div.calendar-item',
-                    'div.match-item',
-                    'tr.calendar-row',
-                    '[class*="match"]',
-                    '[class*="game"]'
+                    'div.calendar-item',          # Календарные матчи
+                    'div.match-item',            # Матчи
+                    'tr.calendar-row',           # Строки календаря
+                    'div.game-item',             # Игровые элементы
+                    'div.schedule-item',         # Элементы расписания
+                    'tr[data-game-id]',          # Строки с ID игры
+                    'div[class*="match"]',     # Любые элементы с 'match'
+                    'div[class*="game"]',      # Любые элементы с 'game'
+                    'table.schedule tr',         # Строки в таблице расписания
+                    'div.event',                 # События
+                    'a[href*="/game/"]',       # Ссылки на игры
+                    'div.match-info',            # Информация о матче
+                    'div.team-score',            # Счет команд
                 ]
                 
-                match_elements = []
+                all_elements = []
                 for selector in match_selectors:
                     elements = soup.select(selector)
                     if elements:
-                        match_elements.extend(elements)
-                        logger.info(f"🏒 Found {len(elements)} matches with selector: {selector}")
-                        break
+                        all_elements.extend(elements)
+                        logger.info(f"🏒 Found {len(elements)} elements with selector: {selector}")
                 
-                for element in match_elements[:15]:  # Ограничиваем количество
+                # Убираем дубликаты и фильтруем
+                unique_elements = []
+                seen_texts = set()
+                for element in all_elements:
+                    text = element.get_text(strip=True)
+                    # Ищем элементы с названиями команд или датами
+                    if (text and text not in seen_texts and 
+                        len(text) > 15 and 
+                        any(char.isdigit() for char in text)):
+                        unique_elements.append(element)
+                        seen_texts.add(text)
+                
+                logger.info(f"🏒 Processing {len(unique_elements)} unique KHL matches")
+                
+                for element in unique_elements[:25]:  # Увеличим лимит для реальных матчей
                     try:
                         match = await self.parse_match_element(element)
                         if match:
