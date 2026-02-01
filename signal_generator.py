@@ -113,6 +113,7 @@ class SignalGenerator:
             signal = Signal(
                 sport=match.sport,
                 signal=signal_text,
+                prediction=prediction['prediction'],
                 confidence=prediction['confidence'],
                 match_id=match.id,
                 published=False,
@@ -123,7 +124,7 @@ class SignalGenerator:
             signal_id = await db_manager.add_signal(signal)
             signal.id = signal_id
             
-            logger.info(f"💾 Signal saved: {signal_text[:50]}...")
+            logger.info(f"✅ Generated signal: {signal_text[:50]}... (confidence: {prediction['confidence']:.2f})")
             return signal
             
         except Exception as e:

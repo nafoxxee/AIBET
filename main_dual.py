@@ -122,9 +122,11 @@ async def start_initial_data_collection(db_manager):
         from parsers.khl_parser import khl_parser
         
         # Запускаем парсеры для начального сбора данных
-        await cs2_parser.update_matches()
-        await khl_parser.update_matches()
+        cs2_matches = await cs2_parser.update_matches()
+        khl_matches = await khl_parser.update_matches()
         
+        logger.info(f"🔴 Updated {len(cs2_matches)} CS2 matches")
+        logger.info(f"🏒 Updated {len(khl_matches)} KHL matches")
         logger.info("✅ Initial data collection completed")
     except Exception as e:
         logger.warning(f"⚠️ Error in initial data collection: {e}")

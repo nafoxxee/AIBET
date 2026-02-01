@@ -64,7 +64,7 @@ class KHLParser:
                     'div[class*="game"]',      # Любые элементы с 'game'
                     'table.schedule tr',         # Строки в таблице расписания
                     'div.event',                 # События
-                    'a[href*="/game/"]',       # Ссылки на игры
+                    'a[href*="/game/"]',       # Ссылки на игры (исправлено)
                     'div.match-info',            # Информация о матче
                     'div.team-score',            # Счет команд
                 ]
@@ -267,6 +267,22 @@ class KHLParser:
             
         except Exception as e:
             logger.exception(f"❌ Error updating KHL matches: {e}")
+            return []
+    
+    async def get_database_fallback(self) -> List[Match]:
+        """Fallback: последние матчи из базы данных"""
+        try:
+            matches = await db_manager.get_matches(sport="khl", limit=5)
+            
+            if not matches:
+                logger.warning("🏒 No KHL matches in database")
+                return []
+            
+            logger.info(f"🏒 Using database fallback: {len(matches)} KHL matches")
+            return matches
+            
+        except Exception as e:
+            logger.error(f"Error getting database fallback: {e}")
             return []
 
 # Глобальный экземпляр

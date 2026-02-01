@@ -33,8 +33,8 @@ class TelegramPublisher:
         logger.info("📱 Initializing Telegram Publisher")
         
         # Проверяем токен ДО создания бота
-        if not self.bot_token:
-            logger.warning("Telegram publisher disabled: token missing")
+        if not self.bot_token or not isinstance(self.bot_token, str):
+            logger.warning("Telegram publisher disabled: token missing or invalid")
             self._initialized = True  # Помечаем как инициализированный, но отключенный
             return
         

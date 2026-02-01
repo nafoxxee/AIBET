@@ -193,9 +193,7 @@ class AdvancedMLModels:
             matches = await self.db_manager.get_matches(status="finished", limit=1000)
             
             if len(matches) < 100:
-                logger.warning(f"⚠️ Not enough data for ML training: {len(matches)} matches (need 100+)")
-                # Создаем минимальные синтетические данные для базовой работы
-                logger.info("📚 Creating synthetic data for basic ML functionality")
+                logger.warning(f"⚠️ Using synthetic data: only {len(matches)} real matches available")
                 X, y = self.create_synthetic_data()
             else:
                 logger.info(f"📚 Using {len(matches)} matches for training")
@@ -248,7 +246,9 @@ class AdvancedMLModels:
             # Сохраняем модели
             await self.save_models()
             
-            logger.info("✅ ML Models trained successfully")
+            # Обновляем статус обучения
+            self._trained = True
+            logger.info("✅ ML models trained and saved successfully")
             
         except Exception as e:
             logger.exception(f"❌ Error training models: {e}")
@@ -303,6 +303,10 @@ class AdvancedMLModels:
                 with open(scaler_path, 'rb') as f:
                     self.scaler = pickle.load(f)
                 logger.info(f"📂 Scaler loaded from {scaler_path}")
+            
+            # Обновляем статус загрузки
+            self._trained = True
+            logger.info("✅ ML models loaded successfully")
                 
         except Exception as e:
             logger.exception(f"❌ Error loading models: {e}")

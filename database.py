@@ -112,6 +112,7 @@ class DatabaseManager:
                     match_id INTEGER,
                     sport TEXT NOT NULL,
                     signal TEXT NOT NULL,
+                    prediction TEXT,
                     confidence REAL DEFAULT 0.0,
                     published BOOLEAN DEFAULT FALSE,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

@@ -36,14 +36,19 @@ class CS2Parser:
     
     async def fetch_page(self, session: aiohttp.ClientSession, url: str) -> Optional[str]:
         """Загрузка страницы с обработкой ошибок и retry"""
+        import random
+        
         for attempt in range(3):
             try:
+                # Добавляем случайную задержку
+                await asyncio.sleep(random.uniform(1, 3))
+                
                 async with session.get(url, headers=self.headers, timeout=aiohttp.ClientTimeout(total=15)) as response:
                     if response.status == 200:
                         return await response.text()
                     elif response.status == 403:
-                        logger.warning(f"HTTP 403 for {url}, trying API mirrors")
-                        return await self.try_api_mirrors(session)
+                        logger.warning(f"HTTP 403 for {url}, trying database fallback")
+                        return await self.get_database_fallback()
                     else:
                         logger.warning(f"HTTP {response.status} for {url} (attempt {attempt + 1})")
                         if attempt < 2:
@@ -57,20 +62,36 @@ class CS2Parser:
         
         return None
     
-    async def try_api_mirrors(self, session: aiohttp.ClientSession) -> Optional[str]:
-        """Попытка получить данные через API mirrors"""
-        for mirror_url in self.api_mirrors:
-            try:
-                async with session.get(mirror_url, timeout=aiohttp.ClientTimeout(total=10)) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        logger.info(f"✅ Got data from API mirror: {mirror_url}")
-                        return await self.parse_api_data(data)
-            except Exception as e:
-                logger.warning(f"API mirror {mirror_url} failed: {e}")
-                continue
-        
-        return None
+    async def get_database_fallback(self) -> Optional[str]:
+        """Fallback: последние матчи из базы данных"""
+        try:
+            from database import db_manager
+            matches = await db_manager.get_matches(sport="cs2", limit=5)
+            
+            if not matches:
+                logger.warning("🔴 No CS2 matches in database")
+                return None
+            
+            # Создаем HTML из матчей базы
+            html_content = "<html><body>"
+            for match in matches:
+                html_content += f"""
+                <div class="match" data-match-id="{match.id}">
+                    <div class="event-name">{match.features.get('tournament', 'Unknown')}</div>
+                    <div class="team-name">{match.team1}</div>
+                    <div class="team-name">{match.team2}</div>
+                    <div class="time">{match.start_time.strftime('%H:%M') if match.start_time else 'TBD'}</div>
+                    <div class="status">{match.status}</div>
+                </div>
+                """
+            html_content += "</body></html>"
+            
+            logger.info(f"🔴 Using database fallback: {len(matches)} CS2 matches")
+            return html_content
+            
+        except Exception as e:
+            logger.error(f"Error getting database fallback: {e}")
+            return None
     
     async def parse_api_data(self, data: dict) -> Optional[str]:
         """Парсинг данных из API и возврат HTML формата"""
@@ -120,7 +141,7 @@ class CS2Parser:
                     'div.matching',               # Live матчи
                     'tr.match',                   # Матчи в таблицах
                     'div[data-match-id]',         # Матчи с ID
-                    'a[href*="/match/"]',       # Ссылки на матчи
+                    'a[href*="/matches/"]',       # Ссылки на матчи (исправлено)
                     'div.upcoming-match',         # Предстоящие матчи
                     'div.live-match',             # Live матчи
                     'div.completed-match'         # Завершенные матчи
