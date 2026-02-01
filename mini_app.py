@@ -20,6 +20,14 @@ import random
 from database import db_manager
 from ml_models import ml_models
 
+# Настройка логирования - ДО использования logger!
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 # Безопасный импорт парсеров
 try:
     from parsers.cs2_parser import cs2_parser
@@ -40,14 +48,6 @@ except Exception as e:
     KHL_PARSER_AVAILABLE = False
 
 from signal_generator import signal_generator
-
-# Настройка логирования
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 class AIBETMiniApp:
     def __init__(self, db_manager_instance, ml_models_instance):
