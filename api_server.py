@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+"""
+AIBET Analytics Platform - Real API Server
+FastAPI endpoints with real data, ML predictions, and proper error handling
+"""
+
 import asyncio
 import json
 import logging
@@ -5,47 +11,50 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from urllib.parse import parse_qs
 
-from aiohttp import web, WSMsgType
-from aiohttp.web import Request, Response, WebSocketResponse
-import aiohttp_cors
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import uvicorn
 
 from config import config
-from database import DatabaseManager, Match, Signal
+from database import DatabaseManager, Match, Signal, db_manager
 from parsers.cs2_parser import CS2Parser
 from parsers.khl_parser import KHLParser
-from ml.cs2_analyzer import CS2Analyzer
-from ml.khl_analyzer import KHLAnalyzer
+from parsers.odds_parser import odds_parser
+from feature_engineering_real import feature_engineering
+from ml_models_real import ml_models
 
 logger = logging.getLogger(__name__)
 
+# Initialize FastAPI app
+app = FastAPI(
+    title="AIBET Analytics API",
+    description="Real-time sports betting analytics API",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
-class APIServer:
-    """API сервер для Telegram Mini App"""
-    
-    def __init__(self):
-        self.app = web.Application()
-        self.active_connections: Dict[str, WebSocketResponse] = {}
-        self.admin_users = config.telegram.admin_ids
-        
-        # Компоненты
-        self.db_manager = DatabaseManager(config.database.path)
-        self.cs2_parser = None
-        self.khl_parser = None
-        self.cs2_analyzer = None
-        self.khl_analyzer = None
-        
-        # Настройка CORS
-        cors = aiohttp_cors.setup(self.app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers="*",
-                allow_methods="*"
-            )
-        })
-        
-        self._setup_routes()
-        self._setup_cors(cors)
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global components
+cs2_parser = CS2Parser()
+khl_parser = KHLParser()
+
+# Background task status
+background_tasks_status = {
+    "last_data_update": None,
+    "last_ml_training": None,
+    "is_updating": False,
+    "is_training": False
+}
         
     def _setup_routes(self):
         """Настройка API маршрутов"""

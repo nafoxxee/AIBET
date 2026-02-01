@@ -7,10 +7,10 @@ services:
     dockerfilePath: ./Dockerfile.web
     dockerContext: .
     buildCommand: "pip install -r requirements_full.txt"
-    startCommand: "python main_dual.py"
+    startCommand: "python main_production.py"
     envVars:
       - key: PORT
-        value: 10000
+        value: 1000
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: SERVICE_TYPE
@@ -47,10 +47,10 @@ services:
     dockerfilePath: ./Dockerfile.bot
     dockerContext: .
     buildCommand: "pip install -r requirements_full.txt"
-    startCommand: "python main_dual.py"
+    startCommand: "python main_production.py"
     envVars:
       - key: PORT
-        value: 10001
+        value: 1001
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: SERVICE_TYPE

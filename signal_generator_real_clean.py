@@ -186,199 +186,69 @@ class RealSignalGenerator:
         except Exception as e:
             logger.error(f"❌ Error creating signal from prediction: {e}")
             return None
-
-# Global instance
-real_signal_generator = RealSignalGenerator()
-                    if await self.is_match_in_cooldown(match):
-                        continue
-                    
-                    # Получаем предсказание от ML моделей
-                    prediction = await real_ml_models.predict_match(match)
-                    
-                    if not prediction:
-                        logger.debug(f"⚠️ No prediction available for {match.team1} vs {match.team2}")
-                        continue
-                    
-                    # Проверяем уверенность
-                    if prediction['confidence'] < self.min_confidence:
-                        logger.debug(f"⚠️ Low confidence ({prediction['confidence']:.2f}) for {match.team1} vs {match.team2}")
-                        continue
-                    
-                    # Создаем сигнал
-                    signal = await self.create_signal(match, prediction)
-                    if signal:
-                        generated_signals.append(signal)
-                        logger.info(f"✅ Generated signal for {match.sport}: {match.team1} vs {match.team2} (confidence: {prediction['confidence']:.2f})")
-                    
-                    # Проверяем лимит
-                    if len(generated_signals) >= (self.max_signals_per_day - len(today_signals)):
-                        break
-                        
-                except Exception as e:
-                    logger.warning(f"⚠️ Error processing match {match.team1} vs {match.team2}: {e}")
-                    continue
-            
-            logger.info(f"🎯 Generated {len(generated_signals)} new signals")
-            return generated_signals
-            
-        except Exception as e:
-            logger.error(f"❌ Error generating signals: {e}")
-            return []
-    
-    async def create_signal(self, match: Match, prediction: Dict[str, Any]) -> Optional[Signal]:
-        """Создание сигнала из предсказания"""
-        try:
-            # Формируем текст сигнала
-            signal_text = self.format_signal_text(match, prediction)
-            
-            # Создаем объект сигнала
-            signal = Signal(
-                sport=match.sport,
-                signal=signal_text,
-                confidence=prediction['confidence'],
-                match_id=match.id,
-                published=False,
-                created_at=datetime.now()
-            )
-            
-            # Сохраняем в базу данных
-            signal_id = await db_manager.add_signal(signal)
-            signal.id = signal_id
-            
-            logger.info(f"💾 Signal saved: {signal_text[:50]}...")
-            return signal
-            
-        except Exception as e:
-            logger.error(f"❌ Error creating signal: {e}")
-            return None
-    
-    def format_signal_text(self, match: Match, prediction: Dict[str, Any]) -> str:
-        """Форматирование текста сигнала"""
-        confidence_percent = int(prediction['confidence'] * 100)
-        explanation = prediction.get('explanation', 'Анализ на основе статистики')
-        
-        if match.sport == "cs2":
-            emoji = "🔴"
-            sport_name = "CS2"
-        elif match.sport == "khl":
-            emoji = "🏒"
-            sport_name = "КХЛ"
-        else:
-            emoji = "📊"
-            sport_name = match.sport.upper()
-        
-        # Формируем текст
-        text = (
-            f"{emoji} {sport_name}: {match.team1} vs {match.team2}\n"
-            f"🎯 Прогноз: {prediction['prediction']}\n"
-            f"📊 Уверенность: {confidence_percent}%\n"
-            f"🧠 Анализ: {explanation}"
-        )
-        
-        # Добавляем турнир если доступен
-        if match.features and 'tournament' in match.features:
-            tournament = match.features['tournament']
-            if tournament != 'Unknown':
-                text += f"\n🏆 Турнир: {tournament}"
-        
-        return text
     
     async def get_today_signals(self) -> List[Signal]:
         """Получить сигналы за сегодня"""
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        # Получаем все сигналы
-        all_signals = await db_manager.get_signals(limit=100)
-        
-        # Фильтруем сегодняшние
-        today_signals = [
-            signal for signal in all_signals
-            if signal.created_at and signal.created_at >= today
-        ]
-        
-        return today_signals
-    
-    async def is_match_in_cooldown(self, match: Match) -> bool:
-        """Проверка cooldown для матча"""
         try:
-            # Получаем последние сигналы
-            recent_signals = await db_manager.get_signals(limit=50)
+            today = datetime.now().date()
+            today_start = datetime.combine(today, datetime.min.time())
             
-            for signal in recent_signals:
-                if signal.match_id == match.id:
-                    time_diff = datetime.now() - signal.created_at
-                    if time_diff.total_seconds() < (self.signal_cooldown_minutes * 60):
-                        return True
+            signals = await db_manager.get_signals(
+                start_date=today_start,
+                limit=100
+            )
             
-            return False
+            return signals
             
         except Exception as e:
-            logger.warning(f"⚠️ Error checking cooldown: {e}")
-            return False
-    
-    async def get_high_confidence_signals(self, min_confidence: float = 0.80) -> List[Signal]:
-        """Получить сигналы с высокой уверенностью"""
-        try:
-            all_signals = await db_manager.get_signals(limit=100)
-            
-            high_confidence_signals = [
-                signal for signal in all_signals
-                if signal.confidence >= min_confidence
-            ]
-            
-            # Сортируем по уверенности
-            high_confidence_signals.sort(key=lambda x: x.confidence, reverse=True)
-            
-            return high_confidence_signals[:10]  # Возвращаем топ-10
-            
-        except Exception as e:
-            logger.error(f"❌ Error getting high confidence signals: {e}")
+            logger.error(f"❌ Error getting today's signals: {e}")
             return []
     
-    async def get_signal_statistics(self) -> Dict[str, Any]:
+    async def get_signal_stats(self) -> Dict[str, Any]:
         """Получить статистику сигналов"""
         try:
-            # Сигналы за последние 7 дней
-            week_ago = datetime.now() - timedelta(days=7)
-            all_signals = await db_manager.get_signals(limit=500)
+            today_signals = await self.get_today_signals()
             
-            week_signals = [
-                signal for signal in all_signals
-                if signal.created_at and signal.created_at >= week_ago
-            ]
+            # Calculate accuracy for completed signals
+            completed_signals = [s for s in today_signals if s.status == "completed"]
+            correct_signals = [s for s in completed_signals if s.features.get("result") == "win"]
             
-            # Статистика по видам спорта
-            cs2_signals = [s for s in week_signals if s.sport == "cs2"]
-            khl_signals = [s for s in week_signals if s.sport == "khl"]
+            accuracy = len(correct_signals) / len(completed_signals) if completed_signals else 0.0
             
-            # Средняя уверенность
-            avg_confidence = sum(s.confidence for s in week_signals) / len(week_signals) if week_signals else 0
-            
-            # Опубликованные сигналы
-            published_signals = [s for s in week_signals if s.published]
-            
-            return {
-                'total_week_signals': len(week_signals),
-                'cs2_signals': len(cs2_signals),
-                'khl_signals': len(khl_signals),
-                'published_signals': len(published_signals),
-                'avg_confidence': round(avg_confidence, 3),
-                'high_confidence_signals': len([s for s in week_signals if s.confidence >= 0.80]),
-                'last_signal_time': week_signals[0].created_at.isoformat() if week_signals else None
+            stats = {
+                "today_signals": len(today_signals),
+                "completed_signals": len(completed_signals),
+                "correct_signals": len(correct_signals),
+                "accuracy": round(accuracy, 3),
+                "daily_limit": self.max_signals_per_day,
+                "remaining_signals": self.max_signals_per_day - self.daily_signals_count,
+                "last_generated": max([s.created_at for s in today_signals]).isoformat() if today_signals else None
             }
             
+            return stats
+            
         except Exception as e:
-            logger.error(f"❌ Error getting signal statistics: {e}")
+            logger.error(f"❌ Error getting signal stats: {e}")
             return {}
     
-    def get_generator_stats(self) -> Dict[str, Any]:
-        """Получить статистику генератора"""
-        return {
-            'initialized': self._initialized,
-            'min_confidence': self.min_confidence,
-            'max_signals_per_day': self.max_signals_per_day,
-            'signal_cooldown_minutes': self.signal_cooldown_minutes
-        }
+    async def auto_generate_signals(self):
+        """Автоматическая генерация сигналов (для фоновой задачи)"""
+        try:
+            logger.info("🔄 Auto-generating signals")
+            
+            signals = await self.generate_signals()
+            
+            if signals:
+                logger.info(f"✅ Auto-generated {len(signals)} signals")
+                
+                # Здесь можно добавить отправку уведомлений в Telegram
+                # или другие действия при генерации сигналов
+                
+            else:
+                logger.info("ℹ️ No signals generated")
+                
+        except Exception as e:
+            logger.error(f"❌ Error in auto signal generation: {e}")
 
-# Глобальный экземпляр
+# Global instance
 real_signal_generator = RealSignalGenerator()

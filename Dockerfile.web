@@ -26,7 +26,7 @@ ENV PYTHONUNBUFFERED=1
 ENV SERVICE_TYPE=web
 
 # Открытие порта
-EXPOSE 10000
+EXPOSE 1000
 
 # Команда запуска
-CMD ["python", "main_dual.py"]
+CMD ["python", "main_production.py"]
