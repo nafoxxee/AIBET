@@ -17,13 +17,19 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple, Any
 
-from database import Match, Signal, db_manager
+# Импортируем db_manager, но не используем напрямую
+from database import Match, Signal, DatabaseManager
 
 logger = logging.getLogger(__name__)
 
+# Глобальный экземпляр будет инициализирован позже
+db_manager = None
+
 class AdvancedMLModels:
-    def __init__(self, db_manager=None):
-        self.db_manager = db_manager
+    def __init__(self, db_manager_instance=None):
+        global db_manager
+        self.db_manager = db_manager_instance  # Переданный экземпляр
+        db_manager = db_manager_instance  # Обновляем глобальный
         self.rf_model = None
         self.lr_model = None
         self.scaler = StandardScaler()

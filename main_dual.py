@@ -58,6 +58,38 @@ async def initialize_database():
         logger.exception(f"❌ Error initializing database: {e}")
         raise
 
+async def initialize_components(db_manager):
+    """Инициализация всех компонентов с правильным порядком"""
+    logger.info("🔧 Initializing components")
+    
+    try:
+        # 1. Инициализируем ML модели с db_manager
+        from ml_models import AdvancedMLModels
+        global ml_models
+        ml_models = AdvancedMLModels(db_manager_instance=db_manager)
+        await ml_models.initialize()
+        logger.info("✅ ML Models initialized")
+        
+        # 2. Инициализируем Telegram Bot
+        from telegram_bot import AIBOTTelegramBot
+        global telegram_bot
+        bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        admin_id = int(os.getenv("ADMIN_ID", "379036860"))
+        telegram_bot = AIBOTTelegramBot(bot_token, admin_id, db_manager)
+        logger.info("✅ Telegram Bot initialized")
+        
+        # 3. Инициализируем Mini App
+        from mini_app import AIBETMiniApp
+        global mini_app
+        mini_app = AIBETMiniApp(db_manager, ml_models)
+        logger.info("✅ Mini App initialized")
+        
+        return True
+        
+    except Exception as e:
+        logger.exception(f"❌ Error initializing components: {e}")
+        return False
+
 async def start_initial_data_collection(db_manager):
     """Начальный сбор данных"""
     logger.info("📊 Starting initial data collection")
@@ -107,6 +139,30 @@ async def start_match_scheduler():
     except Exception as e:
         logger.error(f"Error starting match scheduler: {e}")
 
+async def start_background_services():
+    """Запуск фоновых сервисов"""
+    logger.info("🔄 Starting background services")
+    
+    try:
+        # 1. Запускаем updater матчей
+        from match_updater import match_updater
+        asyncio.create_task(match_updater.start())
+        logger.info("✅ Match updater started")
+        
+        # 2. Запускаем фоновое обучение ML
+        asyncio.create_task(start_ml_background_training())
+        logger.info("✅ ML background training scheduled")
+        
+        # 3. Запускаем системный сервис
+        asyncio.create_task(start_system_service())
+        logger.info("✅ System service started")
+        
+        return True
+        
+    except Exception as e:
+        logger.warning(f"⚠️ Error starting background services: {e}")
+        return False
+
 async def main():
     """Главная функция запуска"""
     logger.info("🚀 Starting AIBET Analytics Platform")
@@ -118,11 +174,17 @@ async def main():
         # 1. Инициализируем базу данных (общая для всех сервисов)
         db_manager = await initialize_database()
         
-        # 2. Начальный сбор данных (не блокирующий)
-        asyncio.create_task(start_initial_data_collection(db_manager))
+        # 2. Инициализируем компоненты
+        components_ready = await initialize_components(db_manager)
+        if not components_ready:
+            logger.error("❌ Failed to initialize components")
+            sys.exit(1)
         
-        # 3. Фоновое обучение ML (не блокирующее)
-        asyncio.create_task(start_ml_background_training())
+        # 3. Запускаем фоновые сервисы
+        await start_background_services()
+        
+        # 4. Начальный сбор данных (не блокирующий)
+        asyncio.create_task(start_initial_data_collection(db_manager))
         
         if service_type == 'web':
             logger.info("📊 Starting AIBET Mini App Web Service")
@@ -136,9 +198,7 @@ async def main():
             # Запускаем все сервисы параллельно
             await asyncio.gather(
                 bot_main(),
-                health_server(),
-                start_system_service(),
-                start_match_scheduler()
+                health_server()
             )
             
         else:

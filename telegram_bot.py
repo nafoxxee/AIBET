@@ -29,11 +29,39 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "379036860"))
 
 class AIBOTTelegramBot:
-    def __init__(self):
-        self.bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+    def __init__(self, bot_token: str, admin_id: int, db_manager_instance):
+        self.bot = Bot(token=bot_token, parse_mode=ParseMode.HTML)
         self.dp = Dispatcher()
-        self.publisher = create_telegram_publisher(BOT_TOKEN)
+        self.admin_id = admin_id
+        self.db_manager = db_manager_instance  # Переданный экземпляр
+        self.publisher = create_telegram_publisher(bot_token)
         self._initialized = False
+        
+        # Регистрируем хендлеры
+        self.register_handlers()
+        
+        logger.info(f"🤖 AIBOT Telegram Bot initialized (admin: {admin_id})")
+    
+    def register_handlers(self):
+        """Регистрация всех хендлеров"""
+        logger.info("� Registering bot handlers")
+        
+        # Команды
+        self.dp.message.register(self.cmd_start, Command("start"))
+        self.dp.message.register(self.cmd_help, Command("help"))
+        self.dp.message.register(self.cmd_signals, Command("signals"))
+        self.dp.message.register(self.cmd_stats, Command("stats"))
+        self.dp.message.register(self.cmd_analyze, Command("analyze"))
+        self.dp.message.register(self.cmd_admin, Command("admin"))
+        
+        # Inline кнопки
+        self.dp.callback_query.register(self.callback_main, F.data == "main")
+        self.dp.callback_query.register(self.callback_analyze, F.data == "analyze")
+        self.dp.callback_query.register(self.callback_live, F.data == "live")
+        self.dp.callback_query.register(self.callback_signals, F.data == "signals")
+        self.dp.callback_query.register(self.callback_stats, F.data == "stats")
+        
+        logger.info("✅ All handlers registered")
     
     async def initialize(self):
         """Инициализация бота"""
@@ -41,35 +69,12 @@ class AIBOTTelegramBot:
             return
             
         logger.info("🤖 Initializing AIBOT Telegram Bot")
-        logger.info(f"🔑 Bot Token: {BOT_TOKEN[:20]}...{BOT_TOKEN[-10:] if BOT_TOKEN else 'None'}")
-        logger.info(f"👤 Admin ID: {ADMIN_ID}")
+        logger.info(f"🔑 Admin ID: {self.admin_id}")
         
         try:
             # Проверяем токен
-            if not BOT_TOKEN:
-                raise ValueError("TELEGRAM_BOT_TOKEN is empty")
-            
-            # Инициализируем все компоненты
-            logger.info("📊 Initializing database...")
-            await db_manager.initialize()
-            logger.info("✅ Database initialized")
-            
-            logger.info("🤖 Initializing ML models...")
-            await ml_models.initialize()
-            logger.info("✅ ML models initialized")
-            
-            logger.info("🎯 Initializing signal generator...")
-            await signal_generator.initialize()
-            logger.info("✅ Signal generator initialized")
-            
-            logger.info("📱 Initializing Telegram publisher...")
-            await self.publisher.initialize()
-            logger.info("✅ Telegram publisher initialized")
-            
-            # Регистрируем handlers
-            logger.info("🔧 Registering handlers...")
-            self.register_handlers()
-            logger.info("✅ Handlers registered")
+            if not self.bot.token:
+                raise ValueError("Bot token is empty")
             
             # Проверяем подключение к Telegram
             bot_info = await self.bot.get_me()
@@ -233,7 +238,7 @@ class AIBOTTelegramBot:
                 return
             
             # Получаем матчи с высокой уверенностью
-            matches = await db_manager.get_matches(status="upcoming", limit=5)
+            matches = await self.db_manager.get_matches(status="upcoming", limit=5)
             
             if not matches:
                 await message.answer("🤖 Сейчас нет матчей для анализа")

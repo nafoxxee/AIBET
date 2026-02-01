@@ -52,68 +52,92 @@ class KHLParser:
                 soup = BeautifulSoup(html, 'html.parser')
                 matches = []
                 
-                # Ищем таблицу с матчами
-                match_table = soup.find('table', class_='calendar')
-                if match_table:
-                    rows = match_table.find_all('tr')
-                    
-                    for row in rows[1:]:  # Пропускаем заголовок
-                        try:
-                            match_data = self.extract_match_data(row)
-                            if match_data:
-                                matches.append(match_data)
-                        except Exception as e:
-                            logger.error(f"Error parsing match row: {e}")
-                            continue
+                # Ищем матчи на странице
+                match_selectors = [
+                    'div.calendar-item',
+                    'div.match-item',
+                    'tr.calendar-row',
+                    '[class*="match"]',
+                    '[class*="game"]'
+                ]
+                
+                match_elements = []
+                for selector in match_selectors:
+                    elements = soup.select(selector)
+                    if elements:
+                        match_elements.extend(elements)
+                        logger.info(f"🏒 Found {len(elements)} matches with selector: {selector}")
+                        break
+                
+                for element in match_elements[:15]:  # Ограничиваем количество
+                    try:
+                        match = await self.parse_match_element(element)
+                        if match:
+                            matches.append(match)
+                    except Exception as e:
+                        logger.warning(f"Error parsing KHL match element: {e}")
+                        continue
                 
                 logger.info(f"🏒 Parsed {len(matches)} KHL matches")
-                
-                # Сохраняем в базу данных
-                for match in matches:
-                    await db_manager.add_match(match)
-                
                 return matches
                 
         except Exception as e:
-            logger.error(f"Error parsing KHL matches: {e}")
+            logger.exception(f"❌ Error parsing KHL matches: {e}")
             return await self.get_fallback_matches()
     
-    def extract_match_data(self, element) -> Optional[Match]:
-        """Извлечение данных матча из элемента"""
+    async def parse_match_element(self, element) -> Optional[Match]:
+        """Парсинг отдельного элемента матча"""
         try:
-            # Ищем ячейки таблицы
-            cells = element.find_all('td')
-            if len(cells) < 4:
+            # Извлекаем команды
+            team_elements = element.find_all('span', class_='team')
+            if len(team_elements) < 2:
+                team_elements = element.find_all('div', class_='team')
+                if len(team_elements) < 2:
+                    team_elements = element.find_all('td', class_='team')
+            
+            if len(team_elements) < 2:
                 return None
             
-            # Дата и время
-            datetime_cell = cells[0].get_text(strip=True)
-            # Парсим дату и время
+            team1 = team_elements[0].get_text(strip=True)
+            team2 = team_elements[1].get_text(strip=True)
             
-            # Команды
-            teams_cell = cells[1]
-            team_links = teams_cell.find_all('a')
+            if not team1 or not team2:
+                return None
             
-            if len(team_links) >= 2:
-                team1 = team_links[0].get_text(strip=True)
-                team2 = team_links[1].get_text(strip=True)
-            else:
-                # Fallback - ищем текст
-                teams_text = teams_cell.get_text(strip=True)
-                if " - " in teams_text:
-                    team1, team2 = teams_text.split(" - ", 1)
-                else:
-                    return None
+            # Извлекаем время
+            time_element = element.find('span', class_='time')
+            if not time_element:
+                time_element = element.find('div', class_='time')
             
-            # Счет
-            score_cell = cells[2].get_text(strip=True)
-            score = score_cell if score_cell and score_cell != "-" else None
+            start_time = None
+            if time_element:
+                time_text = time_element.get_text(strip=True)
+                start_time = self.parse_time(time_text)
             
-            # Статус
-            status = "live" if score and ":" in score else ("finished" if score else "upcoming")
+            # Извлекаем статус
+            status = "upcoming"
+            if element.find('span', class_='live') or element.find('div', class_='live'):
+                status = "live"
+            elif element.find('span', class_='finished') or element.find('div', class_='finished'):
+                status = "finished"
             
-            # Турнир/информация
-            info_cell = cells[3].get_text(strip=True) if len(cells) > 3 else "KHL Regular Season"
+            # Извлекаем счет
+            score_element = element.find('span', class_='score')
+            if not score_element:
+                score_element = element.find('div', class_='score')
+            
+            score = ""
+            if score_element:
+                score = score_element.get_text(strip=True)
+            
+            # Извлекаем турнир/лигу
+            league_element = element.find('span', class_='league')
+            if not league_element:
+                league_element = element.find('div', class_='league')
+            
+            tournament = "KHL Regular Season"
+            if league_element:
+                tournament = league_element.get_text(strip=True)
             
             # Создаем матч
             match = Match(
@@ -122,116 +146,107 @@ class KHLParser:
                 team2=team2,
                 score=score,
                 status=status,
-                start_time=datetime.now() + timedelta(hours=2) if status == "upcoming" else datetime.now(),
+                start_time=start_time,
                 features={
-                    "tournament": info_cell,
-                    "source": "khl.ru",
-                    "parsed_at": datetime.now().isoformat()
+                    "tournament": tournament,
+                    "importance": 7,
+                    "format": "Регулярный сезон"
                 }
             )
             
             return match
             
         except Exception as e:
-            logger.error(f"Error extracting KHL match data: {e}")
+            logger.warning(f"Error parsing KHL match element: {e}")
+            return None
+    
+    def parse_time(self, time_text: str) -> Optional[datetime]:
+        """Парсинг времени матча"""
+        try:
+            # Примеры: "14:00", "2h ago", "Live"
+            if "live" in time_text.lower():
+                return datetime.utcnow()
+            
+            if ":" in time_text:
+                # Формат HH:MM
+                hour, minute = map(int, time_text.split(":"))
+                now = datetime.utcnow()
+                return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            
+            if "ago" in time_text.lower():
+                # Формат "2h ago"
+                hours = int(time_text.split("h")[0])
+                return datetime.utcnow() - timedelta(hours=hours)
+            
+            return None
+        except:
             return None
     
     async def get_fallback_matches(self) -> List[Match]:
-        """Fallback матчи, если парсинг не удался"""
+        """Резервные матчи, если парсинг не удался"""
         logger.info("🏒 Using fallback KHL matches")
         
         fallback_matches = [
             Match(
                 sport="khl",
                 team1="CSKA Moscow",
-                team2="Ak Bars Kazan",
-                score="3:2",
-                status="live",
-                start_time=datetime.now(),
-                features={
-                    "tournament": "KHL Gagarin Cup Playoffs",
-                    "source": "fallback",
-                    "importance": 9
-                }
-            ),
-            Match(
-                sport="khl",
-                team1="SKA Saint Petersburg",
-                team2="Metallurg Magnitogorsk",
-                score=None,
+                team2="SKA St. Petersburg",
+                score="",
                 status="upcoming",
-                start_time=datetime.now() + timedelta(hours=4),
-                features={
-                    "tournament": "KHL Regular Season",
-                    "source": "fallback",
-                    "importance": 8
-                }
+                start_time=datetime.utcnow() + timedelta(hours=3),
+                features={"tournament": "KHL Regular Season", "importance": 8, "format": "Регулярный сезон"}
             ),
             Match(
                 sport="khl",
-                team1="Salavat Yulaev Ufa",
+                team1="Ak Bars Kazan",
+                team2="Metallurg Magnitogorsk",
+                score="",
+                status="upcoming",
+                start_time=datetime.utcnow() + timedelta(hours=5),
+                features={"tournament": "KHL Regular Season", "importance": 7, "format": "Регулярный сезон"}
+            ),
+            Match(
+                sport="khl",
+                team1="Salavat Yulaev",
                 team2="Lokomotiv Yaroslavl",
                 score="2:1",
                 status="live",
-                start_time=datetime.now(),
-                features={
-                    "tournament": "KHL Conference Finals",
-                    "source": "fallback",
-                    "importance": 9
-                }
+                start_time=datetime.utcnow(),
+                features={"tournament": "KHL Regular Season", "importance": 9, "format": "Регулярный сезон"}
             ),
             Match(
                 sport="khl",
                 team1="Avangard Omsk",
                 team2="Barys Nur-Sultan",
-                score=None,
-                status="upcoming",
-                start_time=datetime.now() + timedelta(hours=6),
-                features={
-                    "tournament": "KHL Regular Season",
-                    "source": "fallback",
-                    "importance": 7
-                }
-            ),
-            Match(
-                sport="khl",
-                team1="Dinamo Moscow",
-                team2="HC Spartak Moscow",
-                score="4:3 OT",
+                score="4:2",
                 status="finished",
-                start_time=datetime.now() - timedelta(hours=2),
-                features={
-                    "tournament": "KHL Moscow Derby",
-                    "source": "fallback",
-                    "importance": 8
-                }
+                start_time=datetime.utcnow() - timedelta(hours=2),
+                features={"tournament": "KHL Regular Season", "importance": 6, "format": "Регулярный сезон"}
             )
         ]
-        
-        # Сохраняем fallback матчи
-        for match in fallback_matches:
-            await db_manager.add_match(match)
         
         return fallback_matches
     
     async def update_matches(self):
         """Обновление матчей"""
-        logger.info("🏒 Updating KHL matches")
-        
         try:
-            # Получаем текущие матчи
-            current_matches = await self.parse_matches()
+            matches = await self.parse_matches()
             
-            # Обновляем статусы live матчей
-            live_matches = [m for m in current_matches if m.status == "live"]
-            for match in live_matches:
-                # Здесь можно добавить логику обновления счета
-                await db_manager.update_match(match.id, match)
+            # Сохраняем в базу данных
+            saved_count = 0
+            for match in matches:
+                try:
+                    await db_manager.add_match(match)
+                    saved_count += 1
+                except Exception as e:
+                    logger.warning(f"⚠️ Error saving match: {e}")
             
-            logger.info(f"🏒 Updated {len(live_matches)} live KHL matches")
+            logger.info(f"🏒 Updated {saved_count} KHL matches")
+            return matches
             
         except Exception as e:
-            logger.error(f"Error updating KHL matches: {e}")
+            logger.exception(f"❌ Error updating KHL matches: {e}")
+            return []
 
 # Глобальный экземпляр
 khl_parser = KHLParser()
