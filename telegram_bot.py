@@ -540,10 +540,19 @@ async def main():
         raise ValueError("TELEGRAM_BOT_TOKEN not found in environment variables")
     
     # Создаем и запускаем бота
-    bot = AIBOTTelegramBot()
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    admin_id = int(os.getenv("ADMIN_ID", "379036860"))
+    
+    # Импортируем db_manager
+    from database import db_manager
+    
+    bot = AIBOTTelegramBot(bot_token, admin_id, db_manager)
     await bot.start_polling()
 
 # Глобальный экземпляр
 def create_bot():
     """Создание экземпляра бота"""
-    return AIBOTTelegramBot()
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    admin_id = int(os.getenv("ADMIN_ID", "379036860"))
+    from database import db_manager
+    return AIBOTTelegramBot(bot_token, admin_id, db_manager)
