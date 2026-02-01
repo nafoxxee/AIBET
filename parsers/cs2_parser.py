@@ -220,7 +220,7 @@ class CS2Parser:
             logger.info(f"🔴 Updated {len(live_matches)} live CS2 matches")
             
         except Exception as e:
-            logger.error(f"Error updating CS2 matches: {e")
+            logger.exception("Error updating CS2 matches")
 
 # Глобальный экземпляр
 cs2_parser = CS2Parser()
