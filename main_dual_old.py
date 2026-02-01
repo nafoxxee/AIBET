@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AIBET Analytics Platform - Main Entry Point
-Production Ready с автоматическим запуском системных сервисов
+Запуск двух сервисов: Mini App и Telegram Bot (оба как Web Services для free tier)
 """
 
 import asyncio
@@ -46,15 +46,6 @@ async def health_server():
     logger.info("🏥 Health server starting on port 10001")
     await server.serve()
 
-async def start_system_service():
-    """Запуск системного сервиса"""
-    try:
-        from system_service import system_service
-        await system_service.start()
-        logger.info("🚀 System service started successfully")
-    except Exception as e:
-        logger.error(f"Error starting system service: {e}")
-
 async def main():
     """Главная функция запуска"""
     logger.info("🚀 Starting AIBET Analytics Platform")
@@ -66,18 +57,15 @@ async def main():
         logger.info("📊 Starting AIBET Mini App Web Service")
         from mini_app import main as web_main
         await web_main()
-        
     elif service_type == 'bot':
         logger.info("🤖 Starting AIBOT Telegram Bot Web Service")
         from telegram_bot import main as bot_main
         
-        # Запускаем все сервисы параллельно
+        # Запускаем бота и health сервер параллельно
         await asyncio.gather(
             bot_main(),
-            health_server(),
-            start_system_service()
+            health_server()
         )
-        
     else:
         logger.error(f"❌ Unknown service type: {service_type}")
         sys.exit(1)

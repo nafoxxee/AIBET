@@ -22,7 +22,7 @@ from database import Match, Signal, db_manager
 logger = logging.getLogger(__name__)
 
 class AdvancedMLModels:
-    def __init__(self, db_manager):
+    def __init__(self, db_manager=None):
         self.db_manager = db_manager
         self.rf_model = None
         self.lr_model = None
@@ -466,4 +466,4 @@ class AdvancedMLModels:
             await self.train_models()
 
 # Глобальный экземпляр ML моделей
-ml_models = AdvancedMLModels(db_manager)
+ml_models = AdvancedMLModels()
