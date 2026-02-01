@@ -46,41 +46,89 @@ class SignalGenerator:
             # Проверяем лимит сигналов за сегодня
             today_signals = await self.get_today_signals()
             if len(today_signals) >= self.max_signals_per_day:
-                logger.info(f"Already generated {len(today_signals)} signals today (max: {self.max_signals_per_day})")
+                logger.info(f"⚠️ Already generated {len(today_signals)} signals today (max: {self.max_signals_per_day})")
                 return []
             
-            remaining_signals = self.max_signals_per_day - len(today_signals)
+            # Получаем live и upcoming матчи
+            live_matches = await db_manager.get_matches(status="live", limit=20)
+            upcoming_matches = await db_manager.get_matches(status="upcoming", limit=20)
             
-            # Генерируем новые сигналы
-            new_signals = await ml_models.generate_signals(self.min_confidence)
+            all_matches = live_matches + upcoming_matches
+            logger.info(f"📊 Analyzing {len(live_matches)} live and {len(upcoming_matches)} upcoming matches")
             
-            # Фильтруем и ограничиваем
-            filtered_signals = []
-            for signal in new_signals:
-                if len(filtered_signals) >= remaining_signals:
-                    break
-                
-                # Проверяем cooldown
-                if await self.check_signal_cooldown(signal):
-                    filtered_signals.append(signal)
+            generated_signals = []
             
-            # Сохраняем сигналы
-            saved_signals = []
-            for signal in filtered_signals:
+            for match in all_matches:
                 try:
-                    signal_id = await db_manager.add_signal(signal)
-                    signal.id = signal_id
-                    saved_signals.append(signal)
-                    logger.info(f"💾 Generated signal: {signal.signal[:50]}...")
+                    # Проверяем cooldown для этого матча
+                    if await self.is_match_in_cooldown(match):
+                        continue
+                    
+                    # Получаем предсказание от ML моделей
+                    prediction = await ml_models.predict_match(match)
+                    
+                    if not prediction or prediction['confidence'] < self.min_confidence:
+                        logger.debug(f"⚠️ Low confidence ({prediction.get('confidence', 0):.2f}) for {match.team1} vs {match.team2}")
+                        continue
+                    
+                    # Создаем сигнал
+                    signal = await self.create_signal(match, prediction)
+                    if signal:
+                        generated_signals.append(signal)
+                        logger.info(f"✅ Generated signal for {match.sport}: {match.team1} vs {match.team2} (confidence: {prediction['confidence']:.2f})")
+                    
+                    # Проверяем лимит
+                    if len(generated_signals) >= (self.max_signals_per_day - len(today_signals)):
+                        break
+                        
                 except Exception as e:
-                    logger.error(f"Error saving signal: {e}")
+                    logger.warning(f"⚠️ Error processing match {match.team1} vs {match.team2}: {e}")
+                    continue
             
-            logger.info(f"🎯 Generated {len(saved_signals)} new signals")
-            return saved_signals
+            logger.info(f"🎯 Generated {len(generated_signals)} new signals")
+            return generated_signals
             
         except Exception as e:
-            logger.error(f"Error generating daily signals: {e}")
+            logger.exception(f"❌ Error generating daily signals: {e}")
             return []
+    
+    async def create_signal(self, match, prediction) -> Optional[Signal]:
+        """Создание сигнала из предсказания"""
+        try:
+            # Формируем текст сигнала
+            signal_text = self.format_signal_text(match, prediction)
+            
+            # Создаем объект сигнала
+            signal = Signal(
+                sport=match.sport,
+                signal=signal_text,
+                confidence=prediction['confidence'],
+                match_id=match.id,
+                published=False,
+                created_at=datetime.now()
+            )
+            
+            # Сохраняем в базу данных
+            signal_id = await db_manager.add_signal(signal)
+            signal.id = signal_id
+            
+            logger.info(f"💾 Signal saved: {signal_text[:50]}...")
+            return signal
+            
+        except Exception as e:
+            logger.exception(f"❌ Error creating signal: {e}")
+            return None
+    
+    def format_signal_text(self, match, prediction) -> str:
+        """Форматирование текста сигнала"""
+        confidence_percent = int(prediction['confidence'] * 100)
+        
+        if match.sport == "cs2":
+            return f"🔴 CS2: {match.team1} vs {match.team2}\\n🎯 Прогноз: {prediction['prediction']}\\n📊 Уверенность: {confidence_percent}%\\n🏆 {match.features.get('tournament', 'Unknown')}"
+        elif match.sport == "khl":
+            return f"🏒 КХЛ: {match.team1} vs {match.team2}\\n🎯 Прогноз: {prediction['prediction']}\\n📊 Уверенность: {confidence_percent}%\\n🏆 {match.features.get('tournament', 'Unknown')}"
+        else:
+            return f"📊 {match.sport.upper()}: {match.team1} vs {match.team2}\\n🎯 Прогноз: {prediction['prediction']}\\n📊 Уверенность: {confidence_percent}%"
     
     async def get_today_signals(self) -> List[Signal]:
         """Получить сигналы за сегодня"""
@@ -97,204 +145,101 @@ class SignalGenerator:
         
         return today_signals
     
-    async def check_signal_cooldown(self, signal: Signal) -> bool:
-        """Проверка cooldown для сигнала"""
-        if not signal.match_id:
-            return True
-        
+    async def is_match_in_cooldown(self, match) -> bool:
+        """Проверка cooldown для матча"""
         try:
             # Получаем последние сигналы для этого матча
             recent_signals = await db_manager.get_signals(limit=100)
             
-            for existing_signal in recent_signals:
-                if (existing_signal.match_id == signal.match_id and 
-                    existing_signal.created_at):
-                    
-                    time_diff = datetime.now() - existing_signal.created_at
-                    if time_diff.total_seconds() < self.signal_cooldown_minutes * 60:
-                        logger.info(f"Signal cooldown active for match {signal.match_id}")
-                        return False
+            for signal in recent_signals:
+                if signal.match_id == match.id:
+                    time_diff = datetime.now() - signal.created_at
+                    if time_diff.total_seconds() < (self.signal_cooldown_minutes * 60):
+                        return True
             
-            return True
+            return False
             
         except Exception as e:
-            logger.error(f"Error checking signal cooldown: {e}")
-            return True
+            logger.warning(f"⚠️ Error checking cooldown: {e}")
+            return False
     
-    async def get_high_confidence_matches(self) -> List[Dict]:
-        """Получить матчи с высокой уверенностью предсказания"""
-        logger.info("🔍 Analyzing high confidence matches")
+    async def analyze_live_matches(self) -> List[Signal]:
+        """Анализ live матчей для генерации срочных сигналов"""
+        logger.info("🔴 Analyzing live matches for urgent signals")
         
         try:
-            # Получаем предстоящие матчи
-            matches = await db_manager.get_matches(status="upcoming", limit=50)
+            # Получаем только live матчи
+            live_matches = await db_manager.get_matches(status="live", limit=10)
             
-            high_confidence_matches = []
+            urgent_signals = []
             
-            for match in matches:
-                # Пропускаем матчи, которые скоро начнутся
-                if match.start_time and match.start_time < datetime.now() + timedelta(minutes=30):
+            for match in live_matches:
+                try:
+                    # Для live матчей используем более низкий порог
+                    prediction = await ml_models.predict_match(match)
+                    
+                    if not prediction or prediction['confidence'] < 0.65:  # Более низкий порог для live
+                        continue
+                    
+                    # Проверяем cooldown
+                    if await self.is_match_in_cooldown(match):
+                        continue
+                    
+                    # Создаем срочный сигнал
+                    signal = await self.create_signal(match, prediction)
+                    if signal:
+                        urgent_signals.append(signal)
+                        logger.info(f"🚨 URGENT signal for live {match.sport}: {match.team1} vs {match.team2}")
+                
+                except Exception as e:
+                    logger.warning(f"⚠️ Error analyzing live match {match.team1} vs {match.team2}: {e}")
                     continue
-                
-                # Получаем предсказание
-                prediction = await ml_models.predict_match(match)
-                
-                if prediction['confidence'] >= self.min_confidence:
-                    high_confidence_matches.append({
-                        'match': match,
-                        'prediction': prediction
-                    })
             
-            # Сортируем по уверенности
-            high_confidence_matches.sort(
-                key=lambda x: x['prediction']['confidence'], 
-                reverse=True
-            )
-            
-            logger.info(f"🔍 Found {len(high_confidence_matches)} high confidence matches")
-            return high_confidence_matches
+            return urgent_signals
             
         except Exception as e:
-            logger.error(f"Error getting high confidence matches: {e}")
+            logger.exception(f"❌ Error analyzing live matches: {e}")
             return []
     
-    async def analyze_signal_performance(self, days: int = 7) -> Dict[str, float]:
-        """Анализ производительности сигналов"""
-        logger.info(f"📊 Analyzing signal performance for last {days} days")
-        
-        try:
-            cutoff_date = datetime.now() - timedelta(days=days)
-            
-            # Получаем сигналы за период
-            all_signals = await db_manager.get_signals(limit=1000)
-            period_signals = [
-                signal for signal in all_signals
-                if signal.created_at and signal.created_at >= cutoff_date
-            ]
-            
-            if not period_signals:
-                return {
-                    'total_signals': 0,
-                    'accuracy': 0.0,
-                    'avg_confidence': 0.0,
-                    'success_rate': 0.0
-                }
-            
-            # Анализируем результаты
-            successful_signals = 0
-            total_confidence = 0
-            
-            for signal in period_signals:
-                if signal.match_id:
-                    # Получаем матч
-                    matches = await db_manager.get_matches(limit=1000)
-                    match = next((m for m in matches if m.id == signal.match_id), None)
-                    
-                    if match and match.status == 'finished' and match.score:
-                        # Проверяем результат
-                        try:
-                            score_parts = match.score.split(':')
-                            if len(score_parts) >= 2:
-                                score1 = int(score_parts[0])
-                                score2 = int(score_parts[1])
-                                
-                                # Определяем победителя
-                                winner = match.team1 if score1 > score2 else match.team2
-                                
-                                # Проверяем, угадали ли мы
-                                if winner in signal.signal:
-                                    successful_signals += 1
-                        except:
-                            pass
-                
-                total_confidence += signal.confidence
-            
-            performance = {
-                'total_signals': len(period_signals),
-                'successful_signals': successful_signals,
-                'accuracy': (successful_signals / len(period_signals)) * 100 if period_signals else 0,
-                'avg_confidence': (total_confidence / len(period_signals)) * 100 if period_signals else 0
-            }
-            
-            logger.info(f"📊 Signal performance: {performance['accuracy']:.1f}% accuracy")
-            return performance
-            
-        except Exception as e:
-            logger.error(f"Error analyzing signal performance: {e}")
-            return {
-                'total_signals': 0,
-                'accuracy': 0.0,
-                'avg_confidence': 0.0,
-                'success_rate': 0.0
-            }
-    
-    async def get_signal_statistics(self) -> Dict[str, any]:
+    async def get_signal_statistics(self) -> Dict:
         """Получить статистику сигналов"""
         try:
-            # Получаем все сигналы
             all_signals = await db_manager.get_signals(limit=1000)
+            
+            total_signals = len(all_signals)
+            published_signals = len([s for s in all_signals if s.published])
             
             # Статистика по видам спорта
-            cs2_signals = [s for s in all_signals if s.sport == "cs2"]
-            khl_signals = [s for s in all_signals if s.sport == "khl"]
+            cs2_signals = len([s for s in all_signals if s.sport == "cs2"])
+            khl_signals = len([s for s in all_signals if s.sport == "khl"])
             
-            # Статистика по уверенности
-            high_confidence = [s for s in all_signals if s.confidence >= 0.80]
-            medium_confidence = [s for s in all_signals if 0.70 <= s.confidence < 0.80]
-            low_confidence = [s for s in all_signals if s.confidence < 0.70]
+            # Средняя уверенность
+            avg_confidence = sum(s.confidence for s in all_signals) / len(all_signals) if all_signals else 0
             
-            # Сегодняшние сигналы
+            # Сигналы за сегодня
             today_signals = await self.get_today_signals()
             
-            statistics = {
-                'total_signals': len(all_signals),
-                'cs2_signals': len(cs2_signals),
-                'khl_signals': len(khl_signals),
-                'high_confidence': len(high_confidence),
-                'medium_confidence': len(medium_confidence),
-                'low_confidence': len(low_confidence),
-                'today_signals': len(today_signals),
-                'published_signals': len([s for s in all_signals if s.published]),
-                'avg_confidence': sum(s.confidence for s in all_signals) / len(all_signals) if all_signals else 0
+            return {
+                "total_signals": total_signals,
+                "published_signals": published_signals,
+                "cs2_signals": cs2_signals,
+                "khl_signals": khl_signals,
+                "avg_confidence": avg_confidence,
+                "today_signals": len(today_signals),
+                "success_rate": published_signals / total_signals if total_signals > 0 else 0
             }
             
-            return statistics
-            
         except Exception as e:
-            logger.error(f"Error getting signal statistics: {e}")
+            logger.exception(f"❌ Error getting signal statistics: {e}")
             return {}
     
-    async def cleanup_old_signals(self, days: int = 30):
-        """Очистка старых сигналов"""
-        logger.info(f"🧹 Cleaning up signals older than {days} days")
-        
-        try:
-            cutoff_date = datetime.now() - timedelta(days=days)
-            
-            # Получаем старые сигналы
-            all_signals = await db_manager.get_signals(limit=1000)
-            old_signals = [
-                signal for signal in all_signals
-                if signal.created_at and signal.created_at < cutoff_date
-            ]
-            
-            # Удаляем старые сигналы (в SQLite нет прямого удаления, но можно пометить)
-            for signal in old_signals:
-                # В реальной реализации здесь было бы удаление из БД
-                pass
-            
-            logger.info(f"🧹 Cleaned up {len(old_signals)} old signals")
-            
-        except Exception as e:
-            logger.error(f"Error cleaning up old signals: {e}")
-    
-    async def update_confidence_threshold(self, new_threshold: float):
-        """Обновление порога уверенности"""
-        if 0.5 <= new_threshold <= 1.0:
-            self.min_confidence = new_threshold
-            logger.info(f"🎯 Updated confidence threshold to {new_threshold}")
+    def set_confidence_threshold(self, threshold: float):
+        """Установить порог уверенности"""
+        if 0.5 <= threshold <= 1.0:
+            self.min_confidence = threshold
+            logger.info(f"🎯 Confidence threshold set to {threshold}")
         else:
-            logger.warning(f"Invalid confidence threshold: {new_threshold}")
+            logger.warning(f"⚠️ Invalid confidence threshold: {threshold}")
 
-# Глобальный экземпляр генератора сигналов
+# Глобальный экземпляр
 signal_generator = SignalGenerator()

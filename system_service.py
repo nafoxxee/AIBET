@@ -14,6 +14,7 @@ from database import db_manager
 from ml_models import ml_models
 from signal_generator import signal_generator
 from telegram_publisher import create_telegram_publisher
+from auto_publisher import auto_publisher
 from parsers.cs2_parser import cs2_parser
 from parsers.khl_parser import khl_parser
 
@@ -24,6 +25,7 @@ class SystemService:
         self.cs2_parser = cs2_parser
         self.khl_parser = khl_parser
         self.publisher = create_telegram_publisher(os.getenv("TELEGRAM_BOT_TOKEN"))
+        self.auto_publisher = auto_publisher
         self._running = False
         self._tasks = []
     
@@ -42,6 +44,7 @@ class SystemService:
         self._tasks = [
             asyncio.create_task(self.data_collection_loop()),
             asyncio.create_task(self.signal_generation_loop()),
+            asyncio.create_task(self.auto_publishing_loop()),
             asyncio.create_task(self.model_training_loop()),
             asyncio.create_task(self.cleanup_loop())
         ]
@@ -82,10 +85,13 @@ class SystemService:
             # Инициализируем publisher
             await self.publisher.initialize()
             
+            # Инициализируем автопаблишер
+            await self.auto_publisher.initialize()
+            
             logger.info("✅ All components initialized")
             
         except Exception as e:
-            logger.error(f"Error initializing components: {e}")
+            logger.exception(f"❌ Error initializing components: {e}")
             raise
     
     async def data_collection_loop(self):
@@ -130,7 +136,28 @@ class SystemService:
                 break
             except Exception as e:
                 logger.error(f"Error in signal generation loop: {e}")
-                await asyncio.sleep(300)  # Ждем 5 минут при ошибке
+                await asyncio.sleep(3600)  # Ждем 1 час при ошибке
+    
+    async def auto_publishing_loop(self):
+        """Цикл автоматической публикации"""
+        logger.info("📱 Starting auto publishing loop")
+        
+        while self._running:
+            try:
+                # Публикуем ожидающие сигналы
+                published_count = await self.auto_publisher.publish_pending_signals()
+                
+                if published_count > 0:
+                    logger.info(f"📢 Auto-published {published_count} signals")
+                
+                # Ждем 5 минут до следующей проверки
+                await asyncio.sleep(300)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.exception(f"❌ Error in auto publishing loop: {e}")
+                await asyncio.sleep(60)  # Ждем 1 минуту при ошибке
     
     async def model_training_loop(self):
         """Цикл обучения моделей"""

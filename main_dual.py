@@ -55,6 +55,15 @@ async def start_system_service():
     except Exception as e:
         logger.error(f"Error starting system service: {e}")
 
+async def start_match_scheduler():
+    """Запуск планировщика матчей"""
+    try:
+        from match_scheduler import match_scheduler
+        await match_scheduler.start()
+        logger.info("📊 Match scheduler started successfully")
+    except Exception as e:
+        logger.error(f"Error starting match scheduler: {e}")
+
 async def main():
     """Главная функция запуска"""
     logger.info("🚀 Starting AIBET Analytics Platform")
@@ -75,7 +84,8 @@ async def main():
         await asyncio.gather(
             bot_main(),
             health_server(),
-            start_system_service()
+            start_system_service(),
+            start_match_scheduler()
         )
         
     else:

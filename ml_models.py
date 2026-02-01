@@ -51,11 +51,29 @@ class AdvancedMLModels:
         import os
         os.makedirs(self.models_path, exist_ok=True)
         
-        # Загружаем существующие модели или создаем новые
-        await self.load_models()
-        
-        self._initialized = True
-        logger.info("✅ ML Models initialized successfully")
+        try:
+            # Пытаемся загрузить существующие модели
+            await self.load_models()
+            
+            if self.rf_model is None or self.lr_model is None:
+                logger.info("📚 No existing models found, training new ones...")
+                await self.train_models()
+            else:
+                logger.info("✅ Existing models loaded successfully")
+                
+            self._initialized = True
+            logger.info("🎉 ML Models initialized successfully")
+            
+        except Exception as e:
+            logger.exception(f"❌ Error initializing ML models: {e}")
+            # При ошибке пробуем обучить новые модели
+            try:
+                await self.train_models()
+                self._initialized = True
+                logger.info("🎉 ML Models initialized with fresh training")
+            except Exception as e2:
+                logger.exception(f"❌ Critical error in ML initialization: {e2}")
+                raise
     
     def extract_features(self, match: Match) -> np.ndarray:
         """Извлечение признаков из матча"""
@@ -162,59 +180,120 @@ class AdvancedMLModels:
             matches = await self.db_manager.get_matches(status="finished", limit=1000)
             
             if len(matches) < 50:
-                logger.warning("Not enough matches for training, using synthetic data")
+                logger.warning(f"⚠️ Not enough matches for training ({len(matches)}), using synthetic data")
                 X, y = self.create_synthetic_data()
             else:
+                logger.info(f"📚 Using {len(matches)} matches for training")
                 X, y = self.create_training_data(matches)
             
             if len(X) < 20:
-                logger.error("Insufficient training data")
-                return
+                logger.error(f"❌ Insufficient training data: {len(X)} samples")
+                # Создаем минимальные синтетические данные
+                X, y = self.create_synthetic_data()
+            
+            logger.info(f"📊 Training with {len(X)} samples")
             
             # Нормализуем признаки
             X_scaled = self.scaler.fit_transform(X)
             
             # Разделяем данные
             X_train, X_test, y_train, y_test = train_test_split(
-                X_scaled, y, test_size=0.2, random_state=42, stratify=y
+                X_scaled, y, test_size=0.2, random_state=42, stratify=y if len(np.unique(y)) > 1 else None
             )
             
             # Обучаем RandomForest
+            logger.info("🌲 Training RandomForest...")
             self.rf_model = RandomForestClassifier(
                 n_estimators=100,
                 max_depth=10,
-                random_state=42,
-                class_weight='balanced'
+                min_samples_split=5,
+                min_samples_leaf=2,
+                random_state=42
             )
             self.rf_model.fit(X_train, y_train)
             
+            # Оцениваем RandomForest
+            rf_pred = self.rf_model.predict(X_test)
+            rf_accuracy = accuracy_score(y_test, rf_pred)
+            logger.info(f"🌲 RandomForest accuracy: {rf_accuracy:.3f}")
+            
             # Обучаем LogisticRegression
+            logger.info("📈 Training LogisticRegression...")
             self.lr_model = LogisticRegression(
+                max_iter=1000,
                 random_state=42,
-                class_weight='balanced',
-                max_iter=1000
+                class_weight='balanced'
             )
             self.lr_model.fit(X_train, y_train)
             
-            # Оцениваем модели
-            rf_pred = self.rf_model.predict(X_test)
+            # Оцениваем LogisticRegression
             lr_pred = self.lr_model.predict(X_test)
-            
-            rf_accuracy = accuracy_score(y_test, rf_pred)
             lr_accuracy = accuracy_score(y_test, lr_pred)
-            
-            logger.info(f"🎯 RandomForest Accuracy: {rf_accuracy:.3f}")
-            logger.info(f"🎯 LogisticRegression Accuracy: {lr_accuracy:.3f}")
+            logger.info(f"📈 LogisticRegression accuracy: {lr_accuracy:.3f}")
             
             # Сохраняем модели
             await self.save_models()
             
-            logger.info("✅ Models trained successfully")
+            logger.info("✅ ML Models trained successfully")
             
         except Exception as e:
-            logger.error(f"Error training models: {e}")
-            # Создаем базовые модели
-            self.create_basic_models()
+            logger.exception(f"❌ Error training models: {e}")
+            raise
+    
+    async def save_models(self):
+        """Сохранение моделей в файлы"""
+        try:
+            # Сохраняем RandomForest
+            rf_path = f"{self.models_path}random_forest.pkl"
+            with open(rf_path, 'wb') as f:
+                pickle.dump(self.rf_model, f)
+            logger.info(f"💾 RandomForest saved to {rf_path}")
+            
+            # Сохраняем LogisticRegression
+            lr_path = f"{self.models_path}logistic_regression.pkl"
+            with open(lr_path, 'wb') as f:
+                pickle.dump(self.lr_model, f)
+            logger.info(f"💾 LogisticRegression saved to {lr_path}")
+            
+            # Сохраняем scaler
+            scaler_path = f"{self.models_path}scaler.pkl"
+            with open(scaler_path, 'wb') as f:
+                pickle.dump(self.scaler, f)
+            logger.info(f"💾 Scaler saved to {scaler_path}")
+            
+        except Exception as e:
+            logger.exception(f"❌ Error saving models: {e}")
+            raise
+    
+    async def load_models(self):
+        """Загрузка моделей из файлов"""
+        try:
+            # Загружаем RandomForest
+            rf_path = f"{self.models_path}random_forest.pkl"
+            if os.path.exists(rf_path):
+                with open(rf_path, 'rb') as f:
+                    self.rf_model = pickle.load(f)
+                logger.info(f"📂 RandomForest loaded from {rf_path}")
+            
+            # Загружаем LogisticRegression
+            lr_path = f"{self.models_path}logistic_regression.pkl"
+            if os.path.exists(lr_path):
+                with open(lr_path, 'rb') as f:
+                    self.lr_model = pickle.load(f)
+                logger.info(f"📂 LogisticRegression loaded from {lr_path}")
+            
+            # Загружаем scaler
+            scaler_path = f"{self.models_path}scaler.pkl"
+            if os.path.exists(scaler_path):
+                with open(scaler_path, 'rb') as f:
+                    self.scaler = pickle.load(f)
+                logger.info(f"📂 Scaler loaded from {scaler_path}")
+                
+        except Exception as e:
+            logger.exception(f"❌ Error loading models: {e}")
+            # При ошибке сбрасываем модели
+            self.rf_model = None
+            self.lr_model = None
     
     def create_synthetic_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """Создание синтетических данных для обучения"""

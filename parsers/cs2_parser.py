@@ -45,64 +45,116 @@ class CS2Parser:
             async with aiohttp.ClientSession() as session:
                 html = await self.fetch_page(session, self.matches_url)
                 if not html:
-                    logger.warning("Failed to fetch HLTV matches page")
+                    logger.warning("⚠️ Failed to fetch HLTV matches page, using fallback")
                     return await self.get_fallback_matches()
                 
                 soup = BeautifulSoup(html, 'html.parser')
                 matches = []
                 
-                # Ищем блоки с матчами
-                match_elements = soup.find_all('a', class_='match')
+                # Ищем разные типы элементов с матчами
+                match_selectors = [
+                    'a.match',
+                    'div.match',
+                    'tr.match',
+                    '[class*="match"]',
+                    '[href*="/match/"]'
+                ]
                 
-                for element in match_elements[:10]:  # Берем первые 10 матчей
+                match_elements = []
+                for selector in match_selectors:
+                    elements = soup.select(selector)
+                    if elements:
+                        match_elements.extend(elements)
+                        logger.info(f"🔴 Found {len(elements)} matches with selector: {selector}")
+                        break
+                
+                if not match_elements:
+                    logger.warning("⚠️ No match elements found, using fallback")
+                    return await self.get_fallback_matches()
+                
+                for element in match_elements[:15]:  # Берем первые 15 матчей
                     try:
                         # Извлекаем данные матча
                         match_data = self.extract_match_data(element)
                         if match_data:
                             matches.append(match_data)
                     except Exception as e:
-                        logger.error(f"Error parsing match element: {e}")
+                        logger.warning(f"⚠️ Error parsing match element: {e}")
                         continue
                 
                 logger.info(f"🔴 Parsed {len(matches)} CS2 matches")
                 
                 # Сохраняем в базу данных
+                saved_count = 0
                 for match in matches:
-                    await db_manager.add_match(match)
+                    try:
+                        await db_manager.add_match(match)
+                        saved_count += 1
+                    except Exception as e:
+                        logger.warning(f"⚠️ Error saving match: {e}")
                 
+                logger.info(f"🔴 Saved {saved_count} CS2 matches to database")
                 return matches
                 
         except Exception as e:
-            logger.error(f"Error parsing CS2 matches: {e}")
+            logger.exception(f"❌ Error parsing CS2 matches: {e}")
             return await self.get_fallback_matches()
     
     def extract_match_data(self, element) -> Optional[Match]:
         """Извлечение данных матча из элемента"""
         try:
-            # Команды
+            # Команды - ищем разные варианты
+            team1, team2 = None, None
+            
+            # Вариант 1: div.team
             team_elements = element.find_all('div', class_='team')
             if len(team_elements) >= 2:
                 team1 = team_elements[0].get_text(strip=True)
                 team2 = team_elements[1].get_text(strip=True)
-            else:
+            
+            # Вариант 2: span.team
+            if not team1 or not team2:
+                team_elements = element.find_all('span', class_='team')
+                if len(team_elements) >= 2:
+                    team1 = team_elements[0].get_text(strip=True)
+                    team2 = team_elements[1].get_text(strip=True)
+            
+            # Вариант 3: текст из href или title
+            if not team1 or not team2:
+                href = element.get('href', '')
+                if 'vs' in href.lower():
+                    parts = href.split('vs')
+                    if len(parts) >= 2:
+                        team1 = parts[0].replace('/', '').replace('-', ' ').strip()
+                        team2 = parts[1].replace('/', '').replace('-', ' ').strip()
+            
+            if not team1 or not team2:
                 return None
             
             # Время и статус
+            status = "upcoming"
+            score = None
+            
+            # Ищем время
             time_element = element.find('div', class_='time')
             if time_element:
                 time_text = time_element.get_text(strip=True)
-                status = "live" if "LIVE" in time_text.upper() else "upcoming"
-            else:
-                time_text = "TBD"
-                status = "upcoming"
+                if "LIVE" in time_text.upper():
+                    status = "live"
             
-            # Счет (если есть)
+            # Ищем счет
             score_element = element.find('div', class_='score')
-            score = score_element.get_text(strip=True) if score_element else None
+            if score_element:
+                score_text = score_element.get_text(strip=True)
+                if ':' in score_text:
+                    score = score_text
+                    status = "live" if not score_text.endswith('OT') else "finished"
             
             # Турнир
+            tournament = "Unknown Tournament"
             tournament_element = element.find('div', class_='tournament-name')
-            tournament = tournament_element.get_text(strip=True) if tournament_element else "Unknown Tournament"
+            if tournament_element:
+                tournament = tournament_element.get_text(strip=True)
             
             # Создаем матч
             match = Match(
@@ -115,14 +167,15 @@ class CS2Parser:
                 features={
                     "tournament": tournament,
                     "source": "hltv.org",
-                    "parsed_at": datetime.now().isoformat()
+                    "parsed_at": datetime.now().isoformat(),
+                    "importance": 8 if status == "live" else 6
                 }
             )
             
             return match
             
         except Exception as e:
-            logger.error(f"Error extracting match data: {e}")
+            logger.warning(f"⚠️ Error extracting CS2 match data: {e}")
             return None
     
     async def get_fallback_matches(self) -> List[Match]:

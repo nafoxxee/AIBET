@@ -69,47 +69,73 @@ class AIBETMiniApp:
                 accuracy = (successful_signals / len(signals)) * 100 if signals else 0
                 
                 return {
-                    "totalSignals": len(today_signals),
+                    "total_signals": len(today_signals),
                     "accuracy": round(accuracy, 1),
-                    "liveMatches": len(live_matches),
-                    "winRate": round(accuracy, 1)
+                    "live_matches": len(live_matches),
+                    "win_rate": round(accuracy, 1),
+                    "total_signals_all": len(signals),
+                    "cs2_signals": len([s for s in signals if s.sport == "cs2"]),
+                    "khl_signals": len([s for s in signals if s.sport == "khl"]),
+                    "avg_confidence": round(sum(s.confidence for s in signals) / len(signals), 3) if signals else 0
                 }
             except Exception as e:
-                logger.error(f"Error in api_home: {e}")
-                return {"totalSignals": 0, "accuracy": 0, "liveMatches": 0, "winRate": 0}
+                logger.exception(f"Error in api_home: {e}")
+                return {
+                    "total_signals": 0, 
+                    "accuracy": 0, 
+                    "live_matches": 0, 
+                    "win_rate": 0,
+                    "error": str(e)
+                }
         
         @self.app.get("/api/live-matches")
         async def api_live_matches():
             """API для live матчей"""
             try:
                 # Получаем live матчи
-                live_matches = await db_manager.get_matches(status="live", limit=10)
+                live_matches = await db_manager.get_matches(status="live", limit=20)
                 
                 result = []
                 for match in live_matches:
-                    # Получаем предсказание
-                    prediction = await ml_models.predict_match(match)
-                    
-                    result.append({
-                        "id": match.id,
-                        "team1": match.team1,
-                        "team2": match.team2,
-                        "tournament": match.features.get("tournament", "Unknown"),
-                        "status": match.status,
-                        "score": match.score,
-                        "prediction": prediction if prediction else None
-                    })
+                    try:
+                        # Получаем предсказание
+                        prediction = await ml_models.predict_match(match)
+                        
+                        result.append({
+                            "id": match.id,
+                            "team1": match.team1,
+                            "team2": match.team2,
+                            "sport": match.sport,
+                            "tournament": match.features.get("tournament", "Unknown"),
+                            "status": match.status,
+                            "score": match.score,
+                            "start_time": match.start_time.isoformat() if match.start_time else None,
+                            "prediction": prediction if prediction else None,
+                            "importance": match.features.get("importance", 5)
+                        })
+                    except Exception as e:
+                        logger.warning(f"Error processing match {match.id}: {e}")
+                        continue
                 
-                return result
+                return {
+                    "matches": result,
+                    "total": len(result),
+                    "updated_at": datetime.now().isoformat()
+                }
+                
             except Exception as e:
-                logger.error(f"Error in api_live_matches: {e}")
-                return []
+                logger.exception(f"Error in api_live_matches: {e}")
+                return {
+                    "matches": [],
+                    "total": 0,
+                    "error": str(e)
+                }
         
         @self.app.get("/api/signals")
         async def api_signals():
             """API для сигналов"""
             try:
-                signals = await db_manager.get_signals(published=True, limit=20)
+                signals = await db_manager.get_signals(published=True, limit=50)
                 
                 result = []
                 for signal in signals:
@@ -118,14 +144,25 @@ class AIBETMiniApp:
                         "sport": signal.sport,
                         "signal": signal.signal,
                         "confidence": signal.confidence,
+                        "match_id": signal.match_id,
+                        "published": signal.published,
                         "created_at": signal.created_at.isoformat() if signal.created_at else None,
-                        "published": signal.published
+                        "published_at": signal.published_at.isoformat() if signal.published_at else None
                     })
                 
-                return result
+                return {
+                    "signals": result,
+                    "total": len(result),
+                    "updated_at": datetime.now().isoformat()
+                }
+                
             except Exception as e:
-                logger.error(f"Error in api_signals: {e}")
-                return []
+                logger.exception(f"Error in api_signals: {e}")
+                return {
+                    "signals": [],
+                    "total": 0,
+                    "error": str(e)
+                }
         
         @self.app.get("/api/statistics")
         async def api_statistics():
@@ -147,17 +184,22 @@ class AIBETMiniApp:
                 successful_signals = len([s for s in week_signals if s.confidence >= 0.7])
                 accuracy = (successful_signals / len(week_signals)) * 100 if week_signals else 0
                 
+                # Статистика по статусам матчей
+                live_matches = len([m for m in matches if m.status == "live"])
+                upcoming_matches = len([m for m in matches if m.status == "upcoming"])
+                finished_matches = len([m for m in matches if m.status == "finished"])
+                
                 return {
                     "accuracy": {
                         "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
                         "values": [65, 70, 68, 72, 75, 71, 73]  # Заглушка
                     },
                     "signals": {
-                        "successRate": [65, 35]  # Заглушка
+                        "values": [successful_signals, len(week_signals) - successful_signals]  # Успешные/Неуспешные
                     },
                     "performance": {
-                        "months": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-                        "monthlySignals": [120, 135, 125, 140, 130, 145]  # Заглушка
+                        "labels": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+                        "values": [120, 135, 125, 140, 130, 145]  # Заглушка
                     },
                     "total_signals": total_signals,
                     "cs2_signals": cs2_signals,
@@ -165,11 +207,71 @@ class AIBETMiniApp:
                     "avg_confidence": round(avg_confidence, 3),
                     "accuracy": round(accuracy, 1),
                     "successful_signals": successful_signals,
-                    "today_signals": len([s for s in signals if s.created_at and s.created_at.date() == datetime.now().date()])
+                    "today_signals": len([s for s in signals if s.created_at and s.created_at.date() == datetime.now().date()]),
+                    "live_matches": live_matches,
+                    "upcoming_matches": upcoming_matches,
+                    "finished_matches": finished_matches,
+                    "updated_at": datetime.now().isoformat()
                 }
             except Exception as e:
-                logger.error(f"Error in api_statistics: {e}")
-                return {}
+                logger.exception(f"Error in api_statistics: {e}")
+                return {
+                    "error": str(e),
+                    "updated_at": datetime.now().isoformat()
+                }
+        
+        @self.app.get("/api/matches")
+        async def api_matches():
+            """API для всех матчей"""
+            try:
+                # Получаем параметры запроса
+                sport = request.query_params.get("sport")
+                status = request.query_params.get("status")
+                limit = int(request.query_params.get("limit", 50))
+                
+                # Получаем матчи
+                matches = await db_manager.get_matches(limit=limit, sport=sport, status=status)
+                
+                result = []
+                for match in matches:
+                    try:
+                        prediction = await ml_models.predict_match(match)
+                        
+                        result.append({
+                            "id": match.id,
+                            "team1": match.team1,
+                            "team2": match.team2,
+                            "sport": match.sport,
+                            "status": match.status,
+                            "score": match.score,
+                            "start_time": match.start_time.isoformat() if match.start_time else None,
+                            "tournament": match.features.get("tournament", "Unknown"),
+                            "importance": match.features.get("importance", 5),
+                            "prediction": prediction if prediction else None,
+                            "created_at": match.created_at.isoformat() if match.created_at else None
+                        })
+                    except Exception as e:
+                        logger.warning(f"Error processing match {match.id}: {e}")
+                        continue
+                
+                return {
+                    "matches": result,
+                    "total": len(result),
+                    "filters": {
+                        "sport": sport,
+                        "status": status,
+                        "limit": limit
+                    },
+                    "updated_at": datetime.now().isoformat()
+                }
+                
+            except Exception as e:
+                logger.exception(f"Error in api_matches: {e}")
+                return {
+                    "matches": [],
+                    "total": 0,
+                    "error": str(e)
+                }
         
         @self.app.get("/api/health")
         async def health():

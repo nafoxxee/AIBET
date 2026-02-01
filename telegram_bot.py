@@ -41,26 +41,50 @@ class AIBOTTelegramBot:
             return
             
         logger.info("🤖 Initializing AIBOT Telegram Bot")
+        logger.info(f"🔑 Bot Token: {BOT_TOKEN[:20]}...{BOT_TOKEN[-10:] if BOT_TOKEN else 'None'}")
+        logger.info(f"👤 Admin ID: {ADMIN_ID}")
         
         try:
+            # Проверяем токен
+            if not BOT_TOKEN:
+                raise ValueError("TELEGRAM_BOT_TOKEN is empty")
+            
             # Инициализируем все компоненты
+            logger.info("📊 Initializing database...")
             await db_manager.initialize()
+            logger.info("✅ Database initialized")
+            
+            logger.info("🤖 Initializing ML models...")
             await ml_models.initialize()
+            logger.info("✅ ML models initialized")
+            
+            logger.info("🎯 Initializing signal generator...")
             await signal_generator.initialize()
+            logger.info("✅ Signal generator initialized")
+            
+            logger.info("📱 Initializing Telegram publisher...")
             await self.publisher.initialize()
+            logger.info("✅ Telegram publisher initialized")
             
             # Регистрируем handlers
+            logger.info("🔧 Registering handlers...")
             self.register_handlers()
+            logger.info("✅ Handlers registered")
+            
+            # Проверяем подключение к Telegram
+            bot_info = await self.bot.get_me()
+            logger.info(f"🤖 Connected to bot: @{bot_info.username} (ID: {bot_info.id})")
             
             self._initialized = True
-            logger.info("✅ AIBOT Telegram Bot initialized successfully")
+            logger.info("🎉 AIBOT Telegram Bot initialized successfully")
             
         except Exception as e:
-            logger.error(f"Error initializing bot: {e}")
+            logger.exception(f"❌ Error initializing bot: {e}")
             raise
     
     def register_handlers(self):
         """Регистрация обработчиков"""
+        logger.info("🔧 Registering command handlers...")
         
         # Команды
         self.dp.message(Command("start"))(self.cmd_start)
@@ -70,6 +94,7 @@ class AIBOTTelegramBot:
         self.dp.message(Command("analyze"))(self.cmd_analyze)
         self.dp.message(Command("admin"))(self.cmd_admin)
         
+        logger.info("🔧 Registering callback handlers...")
         # Callback queries
         self.dp.callback_query(F.data == "main_menu")(self.cb_main_menu)
         self.dp.callback_query(F.data == "live_matches")(self.cb_live_matches)
@@ -77,16 +102,23 @@ class AIBOTTelegramBot:
         self.dp.callback_query(F.data == "stats")(self.cb_stats)
         self.dp.callback_query(F.data == "analyze")(self.cb_analyze)
         
+        logger.info("🔧 Registering message handler...")
         # Любые другие сообщения
         self.dp.message()(self.handle_message)
+        
+        logger.info("✅ All handlers registered successfully")
     
     async def cmd_start(self, message: Message):
         """Команда /start"""
+        logger.info(f"🎯 /start command from user {message.from_user.id} (@{message.from_user.username})")
+        
         try:
             # Регистрируем пользователя
             from database import User
             user = User(telegram_id=message.from_user.id, is_admin=(message.from_user.id == ADMIN_ID))
             await db_manager.add_user(user)
+            
+            logger.info(f"✅ User {message.from_user.id} registered (admin: {user.is_admin})")
             
             # Приветственное сообщение
             welcome_text = (
@@ -103,12 +135,16 @@ class AIBOTTelegramBot:
             keyboard = self.get_main_keyboard()
             await message.answer(welcome_text, reply_markup=keyboard)
             
+            logger.info(f"✅ Welcome message sent to user {message.from_user.id}")
+            
         except Exception as e:
-            logger.error(f"Error in cmd_start: {e}")
+            logger.exception(f"❌ Error in cmd_start: {e}")
             await message.answer("❌ Ошибка. Попробуйте позже.")
     
     async def cmd_help(self, message: Message):
         """Команда /help"""
+        logger.info(f"📖 /help command from user {message.from_user.id}")
+        
         help_text = (
             "<b>📖 Справка AIBOT</b>\n\n"
             "<b>🔥 Основные команды:</b>\n"
@@ -124,14 +160,18 @@ class AIBOTTelegramBot:
         )
         
         await message.answer(help_text)
+        logger.info(f"✅ Help message sent to user {message.from_user.id}")
     
     async def cmd_signals(self, message: Message):
         """Команда /signals"""
+        logger.info(f"📢 /signals command from user {message.from_user.id}")
+        
         try:
             signals = await db_manager.get_signals(published=True, limit=10)
             
             if not signals:
                 await message.answer("📢 Пока нет опубликованных сигналов")
+                logger.info(f"📢 No signals found for user {message.from_user.id}")
                 return
             
             text = f"📢 <b>Последние сигналы ({len(signals)})</b>\n\n"
@@ -144,13 +184,16 @@ class AIBOTTelegramBot:
                 text += f"🕐 {signal.created_at.strftime('%H:%M')}\n\n"
             
             await message.answer(text)
+            logger.info(f"✅ Signals list sent to user {message.from_user.id} ({len(signals)} signals)")
             
         except Exception as e:
-            logger.error(f"Error in cmd_signals: {e}")
+            logger.exception(f"❌ Error in cmd_signals: {e}")
             await message.answer("❌ Ошибка загрузки сигналов")
     
     async def cmd_stats(self, message: Message):
         """Команда /stats"""
+        logger.info(f"📊 /stats command from user {message.from_user.id}")
+        
         try:
             # Получаем статистику
             signals = await db_manager.get_signals(limit=1000)
@@ -172,19 +215,23 @@ class AIBOTTelegramBot:
             )
             
             await message.answer(text)
+            logger.info(f"✅ Statistics sent to user {message.from_user.id} ({total_signals} signals)")
             
         except Exception as e:
-            logger.error(f"Error in cmd_stats: {e}")
+            logger.exception(f"❌ Error in cmd_stats: {e}")
             await message.answer("❌ Ошибка загрузки статистики")
     
     async def cmd_analyze(self, message: Message):
         """Команда /analyze"""
+        logger.info(f"🤖 /analyze command from user {message.from_user.id}")
+        
         try:
             # Получаем матчи с высокой уверенностью
             matches = await db_manager.get_matches(status="upcoming", limit=5)
             
             if not matches:
                 await message.answer("🤖 Сейчас нет матчей для анализа")
+                logger.info(f"🤖 No matches found for analysis for user {message.from_user.id}")
                 return
             
             text = f"🤖 <b>AI анализ матчей</b>\n\n"
@@ -200,16 +247,22 @@ class AIBOTTelegramBot:
                 text += f"📊 Уверенность: <b>{confidence}%</b>\n\n"
             
             await message.answer(text)
+            logger.info(f"✅ Analysis sent to user {message.from_user.id} ({len(matches)} matches)")
             
         except Exception as e:
-            logger.error(f"Error in cmd_analyze: {e}")
+            logger.exception(f"❌ Error in cmd_analyze: {e}")
             await message.answer("❌ Ошибка загрузки анализа")
     
     async def cmd_admin(self, message: Message):
         """Команда /admin"""
+        logger.info(f"🔑 /admin command from user {message.from_user.id}")
+        
         if message.from_user.id != ADMIN_ID:
+            logger.warning(f"⛔ Unauthorized admin access attempt from user {message.from_user.id}")
             await message.answer("⛔ Доступ запрещен")
             return
+        
+        logger.info(f"✅ Admin access granted to user {message.from_user.id}")
         
         try:
             # Получаем статистику
@@ -226,9 +279,10 @@ class AIBOTTelegramBot:
             )
             
             await message.answer(text)
+            logger.info(f"✅ Admin panel sent to user {message.from_user.id}")
             
         except Exception as e:
-            logger.error(f"Error in admin panel: {e}")
+            logger.exception(f"❌ Error in admin panel: {e}")
             await message.answer("❌ Ошибка загрузки панели")
     
     async def cb_main_menu(self, callback):
@@ -427,11 +481,21 @@ class AIBOTTelegramBot:
     
     async def start_polling(self):
         """Запуск бота"""
+        logger.info("🚀 Starting AIBOT bot...")
+        
         if not self._initialized:
+            logger.info("🔧 Bot not initialized, initializing now...")
             await self.initialize()
         
-        logger.info("🤖 Starting AIBOT polling...")
-        await self.dp.start_polling(self.bot)
+        logger.info("🤖 Starting polling...")
+        logger.info(f"📱 Bot will respond to commands: /start, /help, /signals, /stats, /analyze, /admin")
+        logger.info(f"👤 Admin commands available for ID: {ADMIN_ID}")
+        
+        try:
+            await self.dp.start_polling(self.bot)
+        except Exception as e:
+            logger.exception(f"❌ Error in polling: {e}")
+            raise
 
 # Обязательная функция main для импорта
 async def main():
