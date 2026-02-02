@@ -282,11 +282,11 @@ async def main():
         except ImportError:
             logger.warning("⚠️ Статус парсеров неизвестен")
         
-        # Проверка ML моделей
-        if ml_models._initialized:
-            logger.info("✅ ML модели обучены и загружены")
+        # 3. Проверяем статус ML моделей
+        if ml_models is not None and hasattr(ml_models, '_initialized') and ml_models._initialized:
+            logger.info("✅ ML модели загружены")
         else:
-            logger.warning("⚠️ ML модели все еще инициализируются")
+            logger.warning("⚠️ ML модели недоступны - система работает в базовом режиме")
         
         # Проверка сигналов
         try:

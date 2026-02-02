@@ -1,49 +1,18 @@
-# AIBET Analytics Platform - CRITICAL FIX for Render
-# SQLAlchemy MUST be installed first
+# AIBET - MINIMAL CRITICAL DEPENDENCIES ONLY
+# SQLAlchemy MUST install - no conflicts allowed
 
-# Database - CRITICAL - Install FIRST
+# DATABASE - CRITICAL
 sqlalchemy==2.0.25
-psycopg2-binary==2.9.9
 aiosqlite==0.20.0
 
-# Core Web Framework - Compatible versions
+# WEB - MINIMAL
 fastapi==0.104.1
 uvicorn==0.24.0
-gunicorn==21.2.0
 
-# Telegram Bot - Compatible versions
+# BOT - MINIMAL
 aiogram==3.4.1
 aiofiles==23.2.1
 
-# HTTP Client
-aiohttp==3.9.5
-aiohttp-cors==0.8.1
-
-# Data Validation - Compatible versions
-pydantic==2.7.4
-pydantic-core==2.18.4
-
-# ML / Data Science - Compatible versions
-pandas==2.2.2
-numpy==1.26.4
-scikit-learn==1.4.2
-
-# Environment
+# BASIC
 python-dotenv==1.0.1
-
-# Web Scraping
-beautifulsoup4==4.14.3
-lxml==6.0.2
 requests==2.32.5
-
-# Logging
-structlog==24.1.0
-
-# Date utilities
-python-dateutil==2.9.0.post0
-pytz==2023.3
-
-# Development
-pytest==8.2.0
-scipy==1.13.1
-joblib==1.5.3
