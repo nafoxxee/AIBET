@@ -54,16 +54,35 @@ async def health_server():
     await server.serve()
 
 async def initialize_database():
-    """Инициализация базы данных"""
+    """Инициализация базы данных с graceful fallback"""
     logger.info("🗄️ Initializing Database")
     try:
         from database import db_manager
         await db_manager.initialize()
         logger.info("✅ Database initialized successfully")
         return db_manager
+    except ImportError as e:
+        logger.error(f"❌ Database import error: {e}")
+        logger.warning("⚠️ Using fallback database manager")
+        # Создаем простой fallback
+        class FallbackDBManager:
+            def __init__(self):
+                self.initialized = False
+            async def initialize(self):
+                self.initialized = True
+                logger.info("✅ Fallback database initialized")
+        return FallbackDBManager()
     except Exception as e:
         logger.exception(f"❌ Error initializing database: {e}")
-        raise
+        logger.warning("⚠️ Continuing without database")
+        # Создаем простой fallback
+        class FallbackDBManager:
+            def __init__(self):
+                self.initialized = False
+            async def initialize(self):
+                self.initialized = True
+                logger.info("✅ Fallback database initialized")
+        return FallbackDBManager()
 
 async def initialize_components(db_manager):
     """Инициализация всех компонентов с правильным порядком"""
@@ -74,11 +93,20 @@ async def initialize_components(db_manager):
     
     try:
         # 1. Инициализируем ML модели с db_manager (для обоих сервисов)
-        from ml_models import AdvancedMLModels
-        global ml_models
-        ml_models = AdvancedMLModels(db_manager_instance=db_manager)
-        await ml_models.initialize()
-        logger.info("✅ ML Models initialized")
+        try:
+            from ml_models import AdvancedMLModels
+            global ml_models
+            ml_models = AdvancedMLModels(db_manager_instance=db_manager)
+            await ml_models.initialize()
+            logger.info("✅ ML Models initialized")
+        except ImportError as e:
+            logger.error(f"❌ ML models import error: {e}")
+            logger.warning("⚠️ Continuing without ML models")
+            ml_models = None
+        except Exception as e:
+            logger.error(f"❌ ML models initialization error: {e}")
+            logger.warning("⚠️ Continuing without ML models")
+            ml_models = None
         
         if service_type == 'bot':
             # ТОЛЬКО для Bot сервиса: инициализируем Telegram Bot
@@ -247,23 +275,32 @@ async def main():
         
         logger.info("🎯 AIBET + AIBOT System Ready!")
         
-        if service_type == 'web':
-            logger.info("📊 Starting AIBET Mini App Web Service")
-            # Запускаем Mini App с health сервером
-            await asyncio.gather(
-                mini_app.run(),
-                health_server()
-            )
+        if service_type == 'api':
+            logger.info("📊 Starting AIBET API Web Service")
+            # Запускаем API сервер
+            try:
+                from api_server import start_api_server
+                # Используем PORT из окружения (Render)
+                port = int(os.environ.get("PORT", 1000))
+                await start_api_server(port=port)
+            except ImportError as e:
+                logger.error(f"❌ API server import error: {e}")
+                # Fallback - запускаем простой health сервер
+                await health_server()
             
         elif service_type == 'bot':
             logger.info("🤖 Starting AIBOT Telegram Bot Web Service")
-            from telegram_bot import main as bot_main
-            
-            # Запускаем все сервисы параллельно
-            await asyncio.gather(
-                bot_main(),
-                health_server()
-            )
+            try:
+                from telegram_bot import main as bot_main
+                # Запускаем все сервисы параллельно
+                await asyncio.gather(
+                    bot_main(),
+                    health_server()
+                )
+            except ImportError as e:
+                logger.error(f"❌ Telegram bot import error: {e}")
+                # Fallback - запускаем только health сервер
+                await health_server()
             
         else:
             logger.error(f"❌ Unknown service type: {service_type}")

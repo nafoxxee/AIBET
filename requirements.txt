@@ -4,6 +4,7 @@
 # Core Web Framework
 fastapi==0.104.1
 uvicorn==0.24.0
+gunicorn==21.2.0
 
 # Telegram Bot
 aiogram==3.4.1
@@ -17,7 +18,8 @@ aiofiles==23.2.1
 pydantic==2.7.4
 pydantic-core==2.18.4
 
-# Database
+# Database - CRITICAL SQLAlchemy
+sqlalchemy==2.0.25
 aiosqlite==0.22.1
 
 # Web Scraping
@@ -28,15 +30,19 @@ requests==2.32.5
 # ML / Data Science
 numpy==2.0.2
 scikit-learn==1.6.1
-scipy==1.13.1
-joblib==1.5.3
+pandas==2.2.2
 
 # Environment
-python-dotenv==1.0.0
+python-dotenv==1.0.1
 
 # Logging
-structlog==23.2.0
+structlog==24.1.0
 
 # Date utilities
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
 pytz==2023.3
+
+# Development
+pytest==8.2.0
+scipy==1.13.1
+joblib==1.5.3

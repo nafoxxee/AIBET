@@ -6,15 +6,15 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile.web
     dockerContext: .
-    buildCommand: "pip install -r requirements_full.txt"
-    startCommand: "python main_production.py"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main_dual.py"
     envVars:
       - key: PORT
         value: 1000
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: SERVICE_TYPE
-        value: web
+        value: api
     
     # Health check для Render
     healthCheckPath: /api/health
@@ -46,8 +46,8 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile.bot
     dockerContext: .
-    buildCommand: "pip install -r requirements_full.txt"
-    startCommand: "python main_production.py"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main_dual.py"
     envVars:
       - key: PORT
         value: 1001
