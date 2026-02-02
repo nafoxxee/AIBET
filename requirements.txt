@@ -1,29 +1,29 @@
-# AIBET Analytics Platform - Complete Production Dependencies
-# Fixed for Render deployment
+# AIBET Analytics Platform - CRITICAL FIX for Render
+# SQLAlchemy MUST be installed first
 
-# Core Web Framework
-fastapi==0.104.1
-uvicorn==0.24.0
-gunicorn==21.2.0
-
-# Database - CRITICAL DEPENDENCIES
+# Database - CRITICAL - Install FIRST
 sqlalchemy==2.0.25
 psycopg2-binary==2.9.9
 aiosqlite==0.20.0
 
-# Telegram Bot
+# Core Web Framework - Compatible versions
+fastapi==0.104.1
+uvicorn==0.24.0
+gunicorn==21.2.0
+
+# Telegram Bot - Compatible versions
 aiogram==3.4.1
+aiofiles==23.2.1
 
 # HTTP Client
 aiohttp==3.9.5
 aiohttp-cors==0.8.1
-aiofiles==23.2.1
 
-# Data Validation
+# Data Validation - Compatible versions
 pydantic==2.7.4
 pydantic-core==2.18.4
 
-# ML / Data Science
+# ML / Data Science - Compatible versions
 pandas==2.2.2
 numpy==1.26.4
 scikit-learn==1.4.2

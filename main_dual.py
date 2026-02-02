@@ -108,33 +108,55 @@ async def initialize_components(db_manager):
             logger.warning("⚠️ Continuing without ML models")
             ml_models = None
         
-        if service_type == 'bot':
-            # ТОЛЬКО для Bot сервиса: инициализируем Telegram Bot
-            from telegram_bot import AIBOTTelegramBot
-            global telegram_bot
-            bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-            if not bot_token:
-                raise ValueError("❌ TELEGRAM_BOT_TOKEN is required for bot service")
-            
-            # Проверяем тип токена
-            if not isinstance(bot_token, str):
-                raise ValueError(f"❌ TELEGRAM_BOT_TOKEN must be str, got {type(bot_token)}")
-            
-            # Проверяем формат токена (должен начинаться с цифр или символов)
-            if len(bot_token) < 10 or ':' not in bot_token:
-                raise ValueError("❌ TELEGRAM_BOT_TOKEN appears to be invalid (too short or missing ':')")
-            
-            logger.info(f"✅ Telegram token validated: {bot_token[:10]}...")
-            admin_id = int(os.getenv("ADMIN_ID", "379036860"))
-            telegram_bot = AIBOTTelegramBot(bot_token, admin_id, db_manager)
-            logger.info("✅ Telegram Bot initialized")
-            
-        elif service_type == 'web':
-            # ТОЛЬКО для Web сервиса: инициализируем Mini App
-            from mini_app import AIBETMiniApp
-            global mini_app
-            mini_app = AIBETMiniApp(db_manager, ml_models)
-            logger.info("✅ Mini App initialized")
+        # 2. Инициализируем компоненты в зависимости от типа сервиса
+        if service_type == 'api':
+            logger.info("📊 Initializing API components")
+            # Для API не импортируем mini_app если нет SQLAlchemy
+            try:
+                from mini_app import AIBETMiniApp
+                global mini_app
+                mini_app = AIBETMiniApp(db_manager)
+                await mini_app.initialize()
+                logger.info("✅ Mini App initialized")
+            except ImportError as e:
+                logger.error(f"❌ Mini App import error: {e}")
+                logger.warning("⚠️ Continuing without Mini App")
+                mini_app = None
+            except Exception as e:
+                logger.error(f"❌ Mini App initialization error: {e}")
+                logger.warning("⚠️ Continuing without Mini App")
+                mini_app = None
+                
+        elif service_type == 'bot':
+            logger.info("🤖 Initializing Bot components")
+            # Для бота не импортируем telegram_bot если нет SQLAlchemy
+            try:
+                from telegram_bot import AIBOTTelegramBot
+                global telegram_bot
+                bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+                if not bot_token:
+                    raise ValueError("❌ TELEGRAM_BOT_TOKEN is required for bot service")
+                
+                # Проверяем тип токена
+                if not isinstance(bot_token, str):
+                    raise ValueError(f"❌ TELEGRAM_BOT_TOKEN must be str, got {type(bot_token)}")
+                
+                # Проверяем формат токена (должен начинаться с цифр или символов)
+                if len(bot_token) < 10 or ':' not in bot_token:
+                    raise ValueError("❌ TELEGRAM_BOT_TOKEN appears to be invalid (too short or missing ':')")
+                
+                logger.info(f"✅ Telegram token validated: {bot_token[:10]}...")
+                telegram_bot = AIBOTTelegramBot(bot_token, 379036860, db_manager)
+                await telegram_bot.initialize()
+                logger.info("✅ Telegram Bot initialized")
+            except ImportError as e:
+                logger.error(f"❌ Telegram bot import error: {e}")
+                logger.warning("⚠️ Continuing without Telegram Bot")
+                telegram_bot = None
+            except Exception as e:
+                logger.error(f"❌ Telegram bot initialization error: {e}")
+                logger.warning("⚠️ Continuing without Telegram Bot")
+                telegram_bot = None
         
         return True
         
