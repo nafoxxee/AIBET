@@ -1,5 +1,5 @@
 services:
-  # AIBET - МИНИ ПРИЛОЖЕНИЕ
+  # AIBET - МИНИ ПРИЛОЖЕНИЕ (Web Service)
   - type: web
     name: aibet-mini-prilozhenie
     env: docker
@@ -39,8 +39,8 @@ services:
       targetMemoryPercent: 80
       targetCPUPercent: 80
 
-  # AIBOT - БОТ ТЕЛЕГРАММ
-  - type: web
+  # AIBOT - БОТ ТЕЛЕГРАММ (Background Worker)
+  - type: worker
     name: aibot-bot-telegramm
     env: docker
     plan: free
@@ -49,8 +49,6 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python main_dual.py"
     envVars:
-      - key: PORT
-        value: 10001
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: SERVICE_TYPE
@@ -69,13 +67,13 @@ services:
     # Auto-deploy при пуше в main
     autoDeploy: true
     
-    # Настройки для keep-alive
+    # Disk storage
     disk:
       name: aibot-disk
       mountPath: /tmp
       sizeGB: 1
     
-    # Регионы
+    # Region
     regions:
       - oregon
     

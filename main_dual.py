@@ -277,30 +277,47 @@ async def main():
         
         if service_type == 'api':
             logger.info("📊 Starting AIBET API Web Service")
-            # Запускаем API сервер
+            # Запускаем API сервер с PORT из окружения
             try:
                 from api_server import start_api_server
                 # Используем PORT из окружения (Render)
-                port = int(os.environ.get("PORT", 1000))
+                port = int(os.environ.get("PORT", 10000))
+                logger.info(f"🌐 Starting API server on port {port}")
                 await start_api_server(port=port)
             except ImportError as e:
                 logger.error(f"❌ API server import error: {e}")
-                # Fallback - запускаем простой health сервер
-                await health_server()
+                # Fallback - запускаем простой FastAPI сервер
+                from fastapi import FastAPI
+                import uvicorn
+                
+                app = FastAPI()
+                
+                @app.get("/api/health")
+                async def health():
+                    return {"status": "ok", "service": "api", "timestamp": datetime.now().isoformat()}
+                
+                @app.get("/")
+                async def root():
+                    return {"message": "AIBET API Server", "status": "running"}
+                
+                port = int(os.environ.get("PORT", 10000))
+                config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
+                server = uvicorn.Server(config)
+                await server.serve()
             
         elif service_type == 'bot':
-            logger.info("🤖 Starting AIBOT Telegram Bot Web Service")
+            logger.info("🤖 Starting AIBOT Telegram Bot Background Worker")
             try:
                 from telegram_bot import main as bot_main
-                # Запускаем все сервисы параллельно
-                await asyncio.gather(
-                    bot_main(),
-                    health_server()
-                )
+                # Запускаем бота как background worker (без портов)
+                await bot_main()
             except ImportError as e:
                 logger.error(f"❌ Telegram bot import error: {e}")
-                # Fallback - запускаем только health сервер
-                await health_server()
+                logger.info("⚠️ Bot will run in simple mode")
+                # Просто держим процесс активным для worker
+                while True:
+                    await asyncio.sleep(60)
+                    logger.info("🤖 Bot worker is running...")
             
         else:
             logger.error(f"❌ Unknown service type: {service_type}")

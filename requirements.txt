@@ -1,10 +1,15 @@
-# AIBET Analytics Platform - Production Dependencies
-# Фиксированные версии для стабильной работы на Render
+# AIBET Analytics Platform - Complete Production Dependencies
+# Fixed for Render deployment
 
 # Core Web Framework
 fastapi==0.104.1
 uvicorn==0.24.0
 gunicorn==21.2.0
+
+# Database - CRITICAL DEPENDENCIES
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+aiosqlite==0.20.0
 
 # Telegram Bot
 aiogram==3.4.1
@@ -18,22 +23,18 @@ aiofiles==23.2.1
 pydantic==2.7.4
 pydantic-core==2.18.4
 
-# Database - CRITICAL SQLAlchemy
-sqlalchemy==2.0.25
-aiosqlite==0.22.1
+# ML / Data Science
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.4.2
+
+# Environment
+python-dotenv==1.0.1
 
 # Web Scraping
 beautifulsoup4==4.14.3
 lxml==6.0.2
 requests==2.32.5
-
-# ML / Data Science
-numpy==2.0.2
-scikit-learn==1.6.1
-pandas==2.2.2
-
-# Environment
-python-dotenv==1.0.1
 
 # Logging
 structlog==24.1.0

@@ -9,24 +9,27 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Копирование зависимостей
-COPY requirements_full.txt .
-RUN pip install --no-cache-dir -r requirements_full.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Копирование кода
 COPY *.py ./
-COPY parsers/ ./parsers/
+COPY database/ ./database/
+COPY api/ ./api/
+COPY bot/ ./bot/
 COPY ml/ ./ml/
+COPY parsers/ ./parsers/
 
 # Создание необходимых директорий
-RUN mkdir -p logs tmp
+RUN mkdir -p logs tmp data models
 
 # Настройка переменных окружения
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
-ENV SERVICE_TYPE=web
+ENV SERVICE_TYPE=api
 
-# Открытие порта
-EXPOSE 1000
+# Открытие порта (Render установит через PORT)
+EXPOSE 10000
 
 # Команда запуска
-CMD ["python", "main_production.py"]
+CMD ["python", "main_dual.py"]
