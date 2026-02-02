@@ -1,7 +1,7 @@
 services:
-  # AIBET Mini App Web Service
+  # AIBET - МИНИ ПРИЛОЖЕНИЕ
   - type: web
-    name: aibet-mini-app
+    name: aibet-mini-prilozhenie
     env: docker
     plan: free
     dockerfilePath: ./Dockerfile.web
@@ -39,9 +39,9 @@ services:
       targetMemoryPercent: 80
       targetCPUPercent: 80
 
-  # AIBOT Telegram Bot Web Service (Free Tier)
+  # AIBOT - БОТ ТЕЛЕГРАММ
   - type: web
-    name: aibot-telegram-bot
+    name: aibot-bot-telegramm
     env: docker
     plan: free
     dockerfilePath: ./Dockerfile.bot
@@ -64,7 +64,7 @@ services:
       - key: KHL_CHANNEL
         value: "@aibetkhl"
       - key: AIBET_WEB_URL
-        value: "https://aibet-mini-app.onrender.com"
+        value: "https://aibet-mini-prilozhenie.onrender.com"
     
     # Auto-deploy при пуше в main
     autoDeploy: true

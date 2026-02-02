@@ -47,10 +47,10 @@ async def health_server():
     async def root():
         return {"message": "AIBET Bot Health Server", "status": "running"}
     
-    config = uvicorn.Config(app, host="0.0.0.0", port=10001, log_level="info")
+    config = uvicorn.Config(app, host="0.0.0.0", port=1000, log_level="info")
     server = uvicorn.Server(config)
     
-    logger.info("🏥 Health server starting on port 10001")
+    logger.info("🏥 Health server starting on port 1000")
     await server.serve()
 
 async def initialize_database():
