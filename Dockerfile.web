@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
 
 # Копирование зависимостей
 COPY requirements.txt .
+# ГАРАНТИРОВАННАЯ установка SQLAlchemy
+RUN pip install --no-cache-dir sqlalchemy==2.0.25
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Копирование кода

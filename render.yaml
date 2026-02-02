@@ -6,7 +6,6 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile.web
     dockerContext: .
-    buildCommand: "pip install -r requirements.txt"
     startCommand: "python main_dual.py"
     envVars:
       - key: PORT
@@ -46,7 +45,6 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile.bot
     dockerContext: .
-    buildCommand: "pip install -r requirements.txt"
     startCommand: "python main_dual.py"
     envVars:
       - key: PYTHON_VERSION
