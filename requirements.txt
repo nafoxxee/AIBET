@@ -1,18 +1,1 @@
-# AIBET - MINIMAL CRITICAL DEPENDENCIES ONLY
-# SQLAlchemy MUST install - no conflicts allowed
-
-# DATABASE - CRITICAL
 sqlalchemy==2.0.25
-aiosqlite==0.20.0
-
-# WEB - MINIMAL
-fastapi==0.104.1
-uvicorn==0.24.0
-
-# BOT - MINIMAL
-aiogram==3.4.1
-aiofiles==23.2.1
-
-# BASIC
-python-dotenv==1.0.1
-requests==2.32.5
