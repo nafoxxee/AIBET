@@ -10,7 +10,7 @@ services:
     startCommand: "python main_dual.py"
     envVars:
       - key: PORT
-        value: 1000
+        value: 1001
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: SERVICE_TYPE
@@ -50,7 +50,7 @@ services:
     startCommand: "python main_dual.py"
     envVars:
       - key: PORT
-        value: 1001
+        value: 1000
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: SERVICE_TYPE
