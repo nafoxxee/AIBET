@@ -7,7 +7,7 @@ import os
 import sqlite3
 import logging
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
+from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from contextlib import contextmanager
 from typing import Generator
 
@@ -16,9 +16,8 @@ logger = logging.getLogger(__name__)
 # Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./aibet_mvp.db")
 
-# SQLAlchemy 2.0+ compatible Base
-class Base(DeclarativeBase):
-    pass
+# SQLAlchemy Base - stable approach
+Base = declarative_base()
 
 # SQLAlchemy setup
 engine = create_engine(

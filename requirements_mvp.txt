@@ -1,41 +1,41 @@
-# AIBET MVP Requirements - Production Fixed Versions
-# DevOps Fixed for Render Deployment
+# AIBET MVP Requirements - CRITICAL DEPLOY FIX
+# Stable versions for Render deployment
 
-# Core Framework - Compatible versions
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+# Core Framework - STABLE VERSIONS
+fastapi==0.110.0
+uvicorn==0.27.1
 gunicorn==21.2.0
 
-# Data Validation - Pydantic v2 compatible
-pydantic==2.5.2
-pydantic-settings==2.1.0
+# Data Validation - STABLE PYDANTIC V2
+pydantic==2.7.4
+pydantic-settings==2.2.1
 
-# Database - SQLAlchemy 2.0+ compatible imports
-sqlalchemy==2.0.23
-aiosqlite==0.19.0
+# Database - CRITICAL SQLALCHEMY
+sqlalchemy==2.0.25
+aiosqlite==0.20.0
 
-# Telegram Bot - Compatible versions
+# Telegram Bot - STABLE
 aiogram==3.4.1
-aiofiles==23.2.0
+aiofiles==23.2.1
 
-# HTTP Client
-httpx==0.25.2
-aiohttp==3.9.1
+# HTTP Client - STABLE
+httpx==0.27.0
+aiohttp==3.9.5
 
-# ML / Data Science
-scikit-learn==1.3.2
-pandas==2.1.4
-numpy==1.25.2
+# ML / Data Science - STABLE
+scikit-learn==1.4.2
+pandas==2.2.2
+numpy==1.26.4
 
-# Environment
-python-dotenv==1.0.0
+# Environment - STABLE
+python-dotenv==1.0.1
 
-# Logging
-structlog==23.2.0
+# Logging - STABLE
+structlog==24.1.0
 
-# Date utilities
-python-dateutil==2.8.2
+# Date utilities - STABLE
+python-dateutil==2.9.0.post0
 
-# Development (optional for production)
-pytest==7.4.3
-pytest-asyncio==0.21.1
+# Development - STABLE
+pytest==8.2.0
+pytest-asyncio==0.23.6
