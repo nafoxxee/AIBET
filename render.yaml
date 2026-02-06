@@ -1,35 +1,43 @@
 services:
-  # AIBET - МИНИ ПРИЛОЖЕНИЕ (Web Service)
+  # AIBET - AI Analytics Web Service
   - type: web
-    name: aibet-mini-prilozhenie
+    name: aibet-ai-analytics
     env: docker
     plan: free
-    dockerfilePath: ./Dockerfile.web
+    dockerfilePath: ./Dockerfile
     dockerContext: .
-    startCommand: "python main_dual.py"
+    startCommand: "python app/main.py"
     envVars:
       - key: PORT
-        value: 10000
+        value: 8000
       - key: PYTHON_VERSION
-        value: 3.9.0
+        value: 3.11
       - key: SERVICE_TYPE
-        value: api
+        value: ai_analytics
+      - key: DEBUG
+        value: false
+      - key: ENABLE_NHL
+        value: true
+      - key: ENABLE_KHL
+        value: true
+      - key: ENABLE_CS2
+        value: true
+      - key: TTL_NHL
+        value: 300
+      - key: TTL_KHL
+        value: 600
+      - key: TTL_CS2
+        value: 300
+      - key: CACHE_MAX_ITEMS
+        value: 1000
+      - key: AI_EXPLAIN_MODE
+        value: true
     
-    # Health check для Render
-    healthCheckPath: /api/health
+    # Health check
+    healthCheckPath: /health
     
-    # Auto-deploy при пуше в main
+    # Auto-deploy
     autoDeploy: true
-    
-    # Настройки для keep-alive
-    disk:
-      name: aibet-disk
-      mountPath: /tmp
-      sizeGB: 1
-    
-    # Регионы
-    regions:
-      - oregon
     
     # Scaling
     scaling:
@@ -37,20 +45,34 @@ services:
       maxInstances: 1
       targetMemoryPercent: 80
       targetCPUPercent: 80
+    
+    # Region
+    regions:
+      - oregon
 
-  # AIBOT - БОТ ТЕЛЕГРАММ (Background Worker)
+  # AIBOT - AI Bot Service
   - type: worker
-    name: aibot-bot-telegramm
+    name: aibot-ai-assistant
     env: docker
     plan: free
-    dockerfilePath: ./Dockerfile.bot
+    dockerfilePath: ./Dockerfile
     dockerContext: .
-    startCommand: "python main_dual.py"
+    startCommand: "python app/main.py"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.0
+        value: 3.11
       - key: SERVICE_TYPE
-        value: bot
+        value: ai_bot
+      - key: DEBUG
+        value: false
+      - key: ENABLE_NHL
+        value: true
+      - key: ENABLE_KHL
+        value: true
+      - key: ENABLE_CS2
+        value: true
+      - key: AI_EXPLAIN_MODE
+        value: true
       - key: TELEGRAM_BOT_TOKEN
         value: 8579178407:AAGr1hvHrApW7sgjg-SHbi_DpH53ZodS8-4
       - key: ADMIN_ID
@@ -60,20 +82,10 @@ services:
       - key: KHL_CHANNEL
         value: "@aibetkhl"
       - key: AIBET_WEB_URL
-        value: "https://aibet-mini-prilozhenie.onrender.com"
+        value: "https://aibet-ai-analytics.onrender.com"
     
-    # Auto-deploy при пуше в main
+    # Auto-deploy
     autoDeploy: true
-    
-    # Disk storage
-    disk:
-      name: aibot-disk
-      mountPath: /tmp
-      sizeGB: 1
-    
-    # Region
-    regions:
-      - oregon
     
     # Scaling
     scaling:
@@ -81,3 +93,7 @@ services:
       maxInstances: 1
       targetMemoryPercent: 80
       targetCPUPercent: 80
+    
+    # Region
+    regions:
+      - oregon
