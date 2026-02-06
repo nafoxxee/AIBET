@@ -1,9 +1,12 @@
-# AIBET Analytics Platform - Minimal Production Dependencies
-# Optimized for Render Free (low RAM usage)
+# AIBET Analytics Platform - Production Dependencies
+# FastAPI API + Telegram Bot (AIBOT)
 
-# Core Web Framework
+# Core Web Framework (AIBET API)
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 
-# Essential dependencies only
+# Telegram Bot (AIBOT)
+python-telegram-bot==20.7
+
+# Essential dependencies
 python-dotenv==1.0.1

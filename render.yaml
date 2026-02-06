@@ -1,5 +1,5 @@
 services:
-  # AIBET Analytics Platform - Render Free Optimized
+  # AIBET Analytics API - Web Service
   - type: web
     name: aibet-analytics
     env: docker
@@ -14,6 +14,25 @@ services:
     
     # Health check
     healthCheckPath: /health
+    
+    # Auto-deploy
+    autoDeploy: true
+
+  # AIBOT Telegram Bot - Background Worker
+  - type: worker
+    name: aibot-telegram
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: DEBUG
+        value: false
+    
+    # Override command for bot
+    startCommand: "python bot/bot.py"
     
     # Auto-deploy
     autoDeploy: true

@@ -5,11 +5,12 @@ WORKDIR /app
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install minimal dependencies
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app/ ./app/
+COPY bot/ ./bot/
 
 # Environment variables
 ENV PYTHONPATH=/app
@@ -18,5 +19,5 @@ ENV PYTHONUNBUFFERED=1
 # Expose port
 EXPOSE 8000
 
-# Run the application
+# Default command runs API (can be overridden for bot)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT:-8000}"]
