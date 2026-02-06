@@ -1,144 +1,128 @@
 """
-AIBET Analytics Platform - AI Scoring Engine
+AIBET Analytics Platform - AI Scoring Engine v1.3
+Educational analysis with confidence and risk assessment
 """
 
-import asyncio
-import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-import random
+import hashlib
+import json
 
-from app.schemas import AIScore, LeagueMatch
+from app.schemas import LeagueMatch, AIContext, AIFeatures
 from app.logging import setup_logging
 
 logger = setup_logging(__name__)
 
 
 class AIScoringEngine:
-    """AI scoring engine for match analysis"""
+    """AI scoring engine for educational analysis"""
     
     def __init__(self):
-        self.scoring_models = {
-            "confidence": {
-                "form_weight": 0.4,
-                "h2h_weight": 0.3,
-                "odds_weight": 0.2,
-                "situational_weight": 0.1
-            },
-            "value": {
-                "odds_vs_form_weight": 0.5,
-                "market_inefficiency_weight": 0.3,
-                "volatility_weight": 0.2
-            }
+        self.confidence_thresholds = {
+            "high": 0.8,
+            "medium": 0.6,
+            "low": 0.4
+        }
+        
+        self.risk_factors = {
+            "data_quality": 0.3,
+            "sample_size": 0.2,
+            "volatility": 0.3,
+            "time_factor": 0.2
         }
     
-    async def calculate_ai_score(self, match: LeagueMatch, features: Dict[str, Any]) -> AIScore:
-        """Calculate comprehensive AI score"""
+    async def calculate_ai_score(self, match: Optional[LeagueMatch], features: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate AI score with educational disclaimer"""
         try:
-            # Extract composite scores
-            composite_scores = features.get("composite_scores", {})
+            # Base score calculation
+            base_score = await self._calculate_base_score(features)
             
-            confidence_score = composite_scores.get("confidence_score", 0.5)
-            value_score = composite_scores.get("value_score", 0.5)
+            # Confidence calculation
+            confidence = await self._calculate_confidence(features)
             
-            # Determine risk level
-            risk_level = self._determine_risk_level(confidence_score, features)
+            # Risk assessment
+            risk_level = await self._assess_risk_level(features, confidence)
             
-            # Apply AI model adjustments
-            adjusted_confidence = await self._apply_confidence_adjustments(
-                confidence_score, features
-            )
-            adjusted_value = await self._apply_value_adjustments(
-                value_score, features
-            )
+            # Value assessment
+            value_score = await self._calculate_value_score(features)
             
-            return AIScore(
-                ai_score=min(1.0, (adjusted_confidence + adjusted_value) / 2),
-                confidence=adjusted_confidence,
-                risk_level=risk_level
-            )
+            # Educational disclaimer
+            educational_note = self._get_educational_disclaimer()
+            
+            result = {
+                "ai_score": round(base_score, 3),
+                "confidence": round(confidence, 3),
+                "risk_level": risk_level,
+                "value_score": round(value_score, 3),
+                "not_a_prediction": True,
+                "educational_purpose_only": True,
+                "disclaimer": educational_note,
+                "analysis_timestamp": datetime.utcnow().isoformat(),
+                "factors": {
+                    "form_analysis": features.get("form_score", 0),
+                    "historical_data": features.get("h2h_score", 0),
+                    "market_factors": features.get("odds_score", 0),
+                    "league_factors": features.get("league_score", 0)
+                },
+                "confidence_breakdown": {
+                    "data_quality": features.get("data_quality", 0.5),
+                    "sample_size": features.get("sample_size", 0.5),
+                    "market_stability": features.get("market_stability", 0.5)
+                },
+                "risk_factors": await self._identify_risk_factors(features)
+            }
+            
+            logger.info(f"AI score calculated: {base_score:.3f} (confidence: {confidence:.3f})")
+            return result
             
         except Exception as e:
             logger.error(f"Error calculating AI score: {e}")
-            return AIScore(
-                ai_score=0.5,
-                confidence=0.5,
-                risk_level="high"
-            )
+            return self._get_fallback_score()
     
-    async def _apply_confidence_adjustments(self, base_confidence: float, features: Dict[str, Any]) -> float:
-        """Apply confidence adjustments based on various factors"""
+    async def _calculate_base_score(self, features: Dict[str, Any]) -> float:
+        """Calculate base AI score"""
         try:
-            adjusted_confidence = base_confidence
+            # Weighted factors
+            form_weight = 0.3
+            h2h_weight = 0.25
+            odds_weight = 0.25
+            league_weight = 0.2
             
-            # Data quality adjustment
-            data_quality = features.get("data_quality", "medium")
-            if data_quality == "high":
-                adjusted_confidence *= 1.1
-            elif data_quality == "low":
-                adjusted_confidence *= 0.8
+            form_score = features.get("form_score", 0.5)
+            h2h_score = features.get("h2h_score", 0.5)
+            odds_score = features.get("odds_score", 0.5)
+            league_score = features.get("league_score", 0.5)
             
-            # Sample size adjustment
-            form_features = features.get("form", {})
-            if form_features.get("available"):
-                team_a_matches = form_features.get("team_a", {}).get("matches_played", 0)
-                team_b_matches = form_features.get("team_b", {}).get("matches_played", 0)
-                min_matches = min(team_a_matches, team_b_matches)
-                
-                if min_matches >= 10:
-                    adjusted_confidence *= 1.05
-                elif min_matches < 3:
-                    adjusted_confidence *= 0.9
+            base_score = (
+                form_score * form_weight +
+                h2h_score * h2h_weight +
+                odds_score * odds_weight +
+                league_score * league_weight
+            )
             
-            # Odds consistency adjustment
-            odds_features = features.get("odds", {})
-            if odds_features.get("available"):
-                if not odds_features.get("movement_detected"):
-                    adjusted_confidence *= 1.02  # Stable odds = slightly higher confidence
-            
-            # League-specific adjustments
-            league_features = features.get("league_specific", {})
-            if league_features.get("available"):
-                league = league_features.get("league")
-                if league == "NHL":
-                    adjusted_confidence *= 1.0  # Baseline
-                elif league == "KHL":
-                    adjusted_confidence *= 0.95  # Slightly lower confidence
-                elif league == "CS2":
-                    adjusted_confidence *= 0.98  # Esports volatility
-            
-            # Ensure within bounds
-            return max(0.1, min(1.0, adjusted_confidence))
+            # Normalize to 0-1 range
+            return max(0.0, min(1.0, base_score))
             
         except Exception as e:
-            logger.error(f"Error applying confidence adjustments: {e}")
-            return base_confidence
+            logger.error(f"Error calculating base score: {e}")
+            return 0.5
     
-    async def _apply_value_adjustments(self, base_value: float, features: Dict[str, Any]) -> float:
-        """Apply value adjustments based on market analysis"""
+    async def _calculate_confidence(self, features: Dict[str, Any]) -> float:
+        """Calculate confidence level"""
         try:
-            adjusted_value = base_value
+            # Data quality factors
+            data_quality = features.get("data_quality", 0.5)
+            sample_size = features.get("sample_size", 0.5)
+            market_stability = features.get("market_stability", 0.5)
             
-            # Odds spread analysis
-            odds_features = features.get("odds", {})
-            if odds_features.get("available"):
-                odds_spread = odds_features.get("odds_spread", 0)
-                avg_odds = odds_features.get("avg_odds", 2.0)
-                
-                # Higher spread = more value opportunities
-                if odds_spread > 0.5:
-                    adjusted_value *= 1.1
-                elif odds_spread > 0.3:
-                    adjusted_value *= 1.05
-                
-                # Market inefficiency detection
-                if avg_odds > 3.0:
-                    adjusted_value *= 1.15  # High odds often indicate inefficiency
-                elif avg_odds < 1.7:
-                    adjusted_value *= 0.9   # Very low odds = low value
+            # Weighted confidence
+            confidence = (
+                data_quality * 0.4 +
+                sample_size * 0.3 +
+                market_stability * 0.3
+            )
             
-            # Form vs odds mismatch
-            form_features = features.get("form", {})
+            return max(0.0, min(1.0, confidence))
             if form_features.get("available"):
                 form_advantage = form_features.get("form_differential", {}).get("advantage", "balanced")
                 

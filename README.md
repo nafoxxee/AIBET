@@ -1,50 +1,50 @@
-# AIBET Analytics Platform
+# AIBET Analytics Platform v1.3 FULL
 
-Production-ready analytics backend for NHL, KHL, and CS2 matches and odds.
+Production-ready analytics backend for NHL, KHL, and CS2 matches and odds with unified AI analytics.
 
 ## 🎯 Overview
 
-AIBET Analytics Platform is a **production-ready** backend built with Python 3.11 + FastAPI, designed for deployment on Render Free tier. It aggregates, normalizes, and analyzes sports data from multiple sources without requiring databases, APIs, or external dependencies.
+AIBET Analytics Platform v1.3 FULL is a **production-ready** backend built with Python 3.11 + FastAPI, designed for deployment on Render Free tier. It aggregates, normalizes, and analyzes sports data from multiple sources with comprehensive AI analytics and educational disclaimers.
 
-## � Supported Leagues
+## 🏒 Supported Leagues
 
 - **🏒 NHL** - National Hockey League (via public JSON API)
 - **🏒 KHL** - Kontinental Hockey League (via HTML parsing)
 - **🎮 CS2** - Counter-Strike 2 Esports (via multi-source parsing)
 
-## 🚀 Features
+## 🚀 Features v1.3 FULL
 
 ### ✅ Production Ready
-- **Python 3.11** + FastAPI
+- **Python 3.11** + FastAPI 0.104.1
 - **In-memory TTL cache** with configurable expiration
-- **JSON structured logging** for monitoring
+- **JSON structured logging** with structlog
 - **Rate limiting** + security protections
 - **Health checks** for all services
 - **Metrics collection** for performance monitoring
+- **CORS middleware** enabled by default
+- **Global exception handling** with structured responses
 
-### ✅ AI-Ready
+### ✅ AI-Ready v1.3
 - **Global Match ID** (deterministic hash)
 - **Unified data schemas** with Pydantic v2
 - **Feature engineering** for ML models
 - **AI scoring engine** with confidence levels
 - **Explainable AI** with educational disclaimers
+- **Risk assessment** with factor breakdown
+- **Value betting analytics** with market inefficiency detection
 
-### ✅ Telegram Mini App Ready
-- **RESTful API** with unified endpoints
-- **Real-time data** updates
-- **Mobile-optimized** responses
+### ✅ Unified API v1.3
+- **Single entry point**: `app.main:app`
+- **Unified endpoints** under `/v1/` prefix
+- **Structured JSON responses** with success/error handling
+- **Educational disclaimers** on all AI responses
+- **Pydantic validation** for all API responses
 
-### ✅ Premium-Ready
-- **Modular architecture** for easy scaling
-- **Value betting analytics** with risk assessment
-- **AI transparency** with factor explanations
-- **Multi-tier access** patterns
-
-## � Project Structure
+## 📁 Project Structure v1.3
 
 ```
 app/
-├── main.py                 # FastAPI application entry point
+├── main.py                 # FastAPI application entry point v1.3
 ├── config.py               # Pydantic settings management
 ├── cache.py                # In-memory TTL cache implementation
 ├── logging.py              # JSON structured logging
@@ -52,7 +52,7 @@ app/
 ├── schemas.py              # Unified Pydantic models
 ├── quality.py              # Data quality assessment
 ├── normalizer.py           # Data normalization utilities
-├── api/                    # API routes
+├── api/                    # API routes v1.3
 │   ├── v1/
 │   │   ├── nhl.py      # NHL endpoints
 │   │   ├── khl.py      # KHL endpoints
@@ -69,13 +69,13 @@ app/
 │   ├── ids.py         # ID generation
 │   ├── rate_limit.py  # Rate limiting
 │   └── time.py        # Time utilities
-├── ai/                     # AI analytics layer
+├── ai/                     # AI analytics layer v1.3
 │   ├── context.py     # Context builder
 │   ├── features.py    # Feature engineering
 │   ├── scoring.py     # AI scoring engine
 │   ├── explanation.py # Explanation generator
 │   └── prompts.py     # AI prompt templates
-└── requirements.txt        # Python dependencies
+└── requirements.txt        # Python dependencies v1.3
 ```
 
 ## 🔧 Configuration
@@ -105,13 +105,14 @@ CACHE_MAX_ITEMS=1000
 AI_EXPLAIN_MODE=true
 ```
 
-## 🌐 API Endpoints
+## 🌐 API Endpoints v1.3
 
-### Unified Data
-- `GET /v1/unified/matches` - All matches from all leagues
-- `GET /v1/unified/leagues` - Available leagues and status
-- `GET /v1/unified/summary` - Data summary
-- `GET /v1/unified/search` - Search by team names
+### Root & System
+- `GET /` - Root endpoint with API information
+- `GET /health` - Health check with service status
+- `GET /metrics` - Performance metrics
+- `GET /docs` - Interactive API documentation
+- `GET /redoc` - ReDoc documentation
 
 ### League-Specific
 - `GET /v1/nhl/schedule` - NHL schedule
@@ -121,33 +122,75 @@ AI_EXPLAIN_MODE=true
 - `GET /v1/odds/khl` - KHL odds
 - `GET /v1/odds/cs2` - CS2 odds
 
-### AI Analytics
+### Unified Data
+- `GET /v1/unified/matches` - All matches from all leagues
+- `GET /v1/unified/leagues` - Available leagues and status
+- `GET /v1/unified/summary` - Data summary
+- `GET /v1/unified/search` - Search by team names
+
+### AI Analytics v1.3
 - `GET /v1/ai/context/{match_id}` - AI context for match
-- `GET /v1/ai/score/{match_id}` - AI scoring
-- `GET /v1/ai/explain/{match_id}` - AI explanation
-- `GET /v1/ai/value` - Value betting signals
-- `GET /v1/ai/features/{match_id}` - AI features
+- `GET /v1/ai/score/{match_id}` - AI scoring with confidence
+- `GET /v1/ai/explain/{match_id}` - AI explanation with disclaimers
+- `GET /v1/ai/value` - Value betting signals with risk assessment
+- `GET /v1/ai/features/{match_id}` - AI features for analysis
 
-### System
-- `GET /health` - Application health
-- `GET /metrics` - Performance metrics
-- `GET /docs` - API documentation
+## 🤖 AI Analytics v1.3
 
-## 🚀 Deployment
+### Response Structure
+All AI responses include:
+```json
+{
+  "ai_score": 0.743,
+  "confidence": 0.856,
+  "risk_level": "medium",
+  "value_score": 0.612,
+  "not_a_prediction": true,
+  "educational_purpose_only": true,
+  "disclaimer": "This analysis is provided for educational purposes only...",
+  "analysis_timestamp": "2026-02-06T12:00:00Z",
+  "factors": {
+    "form_analysis": 0.75,
+    "historical_data": 0.68,
+    "market_factors": 0.72,
+    "league_factors": 0.82
+  },
+  "confidence_breakdown": {
+    "data_quality": 0.9,
+    "sample_size": 0.8,
+    "market_stability": 0.87
+  },
+  "risk_factors": ["Limited data quality", "High market volatility"]
+}
+```
+
+## 🚀 Deployment v1.3
+
+### Local Development
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run development server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Or using Python
+python -m app.main
+```
 
 ### Render Free Deployment
 
-1. **Fork & Push**
+1. **Clone Repository**
    ```bash
-   git clone https://github.com/your-username/aibet-analytics.git
-   cd aibet-analytics
-   git push origin main
+   git clone https://github.com/nafoxxee/AIBET.git
+   cd AIBET
    ```
 
 2. **Deploy to Render**
    - Connect repository to Render
    - Render will auto-detect `Dockerfile` and `requirements.txt`
-   - Service will be available at `https://your-app.onrender.com`
+   - Service will be available at `https://aibet-analytics-v13.onrender.com`
 
 ### Docker Configuration
 
@@ -155,18 +198,11 @@ AI_EXPLAIN_MODE=true
 FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT}"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT:-8000}"]
 ```
-
-### Health Checks
-
-Render automatically monitors:
-- `/health` endpoint
-- Container responsiveness
-- Resource usage
 
 ## 📊 Monitoring
 
@@ -184,31 +220,7 @@ Structured JSON logging includes:
 - Log level
 - Module and function
 - Error details
-- Custom fields
-
-## 🤖 AI Analytics
-
-### Global Match ID
-
-Deterministic hash based on:
-- League identifier
-- Team names
-- Start time
-
-### Scoring System
-
-- **Confidence Score**: 0.0-1.0 based on data quality
-- **Value Score**: 0.0-1.0 based on market inefficiency
-- **Risk Level**: Low/Medium/High
-- **Educational Disclaimer**: All responses marked as educational
-
-### Feature Engineering
-
-- Recent form analysis (last 5 matches)
-- Head-to-head historical data
-- Odds movement and volatility
-- League-specific factors
-- Time-based performance patterns
+- Performance metrics
 
 ## 🔒 Security
 
@@ -224,44 +236,15 @@ Deterministic hash based on:
 - Date format validation
 - Data quality assessment
 
-## 🎯 Premium Features
+## 🎯 Educational Disclaimers
 
-### Value Betting Analytics
-- Market inefficiency detection
-- Odds vs form analysis
-- Volatility assessment
-- Risk/reward calculations
-
-### AI Transparency
-- Factor explanations
-- Confidence levels
-- Educational disclaimers
-- Not a prediction warnings
-
-## 📱 Telegram Mini App Ready
-
-### Mobile-Optimized
-- Lightweight responses
-- Progressive loading
-- Offline support
-- Push notifications ready
-
-### Real-time Updates
-- WebSocket ready
-- Cache invalidation
-- Live score updates
+All AI responses include:
+- **Educational purpose only** statements
+- **Not a prediction** warnings
+- **Responsible gambling** messages
+- **Risk assessment** factors
 
 ## 🛠️ Development
-
-### Local Development
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run development server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
 
 ### Testing
 
@@ -271,6 +254,16 @@ pytest
 
 # Run with coverage
 pytest --cov=app tests/
+```
+
+### Code Quality
+
+```bash
+# Format code
+black app/
+
+# Lint code
+flake8 app/
 ```
 
 ## 📈 Scaling
@@ -306,6 +299,17 @@ MIT License - see LICENSE file for details.
 - Health: `/health` endpoint
 - Metrics: `/metrics` endpoint
 - Issues: GitHub Issues
+
+## 🎉 v1.3 Features
+
+- ✅ **Unified API** with single entry point
+- ✅ **Educational AI** with disclaimers
+- ✅ **Risk assessment** with factor breakdown
+- ✅ **Value analytics** with market inefficiency
+- ✅ **Production-ready** Docker configuration
+- ✅ **Comprehensive monitoring** and logging
+- ✅ **CORS enabled** for frontend integration
+- ✅ **Error handling** with structured responses
 
 ---
 

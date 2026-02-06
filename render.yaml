@@ -1,19 +1,16 @@
 services:
-  # AIBET - AI Analytics Web Service
+  # AIBET Analytics Platform v1.3 FULL - Web Service
   - type: web
-    name: aibet-ai-analytics
+    name: aibet-analytics-v13
     env: docker
     plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    startCommand: "python app/main.py"
     envVars:
       - key: PORT
         value: 8000
       - key: PYTHON_VERSION
         value: 3.11
-      - key: SERVICE_TYPE
-        value: ai_analytics
       - key: DEBUG
         value: false
       - key: ENABLE_NHL
@@ -35,54 +32,6 @@ services:
     
     # Health check
     healthCheckPath: /health
-    
-    # Auto-deploy
-    autoDeploy: true
-    
-    # Scaling
-    scaling:
-      minInstances: 1
-      maxInstances: 1
-      targetMemoryPercent: 80
-      targetCPUPercent: 80
-    
-    # Region
-    regions:
-      - oregon
-
-  # AIBOT - AI Bot Service
-  - type: worker
-    name: aibot-ai-assistant
-    env: docker
-    plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    startCommand: "python app/main.py"
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11
-      - key: SERVICE_TYPE
-        value: ai_bot
-      - key: DEBUG
-        value: false
-      - key: ENABLE_NHL
-        value: true
-      - key: ENABLE_KHL
-        value: true
-      - key: ENABLE_CS2
-        value: true
-      - key: AI_EXPLAIN_MODE
-        value: true
-      - key: TELEGRAM_BOT_TOKEN
-        value: 8579178407:AAGr1hvHrApW7sgjg-SHbi_DpH53ZodS8-4
-      - key: ADMIN_ID
-        value: 379036860
-      - key: CS2_CHANNEL
-        value: "@aibetcsgo"
-      - key: KHL_CHANNEL
-        value: "@aibetkhl"
-      - key: AIBET_WEB_URL
-        value: "https://aibet-ai-analytics.onrender.com"
     
     # Auto-deploy
     autoDeploy: true
