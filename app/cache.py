@@ -48,6 +48,20 @@ class InMemoryCache:
             logger.debug(f"Cache hit for key: {key}")
             return item.data
     
+    async def get_signals(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get signals from cache (fallback implementation)"""
+        try:
+            cached_data = await self.get("signals")
+            if cached_data:
+                await metrics.increment_cache_hits()
+                return cached_data
+        except Exception:
+            await metrics.increment_cache_misses()
+        
+        # Return empty signals for fallback
+        await metrics.increment_cache_misses()
+        return []
+    
     async def set(self, key: str, data: Any, ttl: int = 300) -> None:
         """Set item in cache with TTL"""
         async with self._lock:

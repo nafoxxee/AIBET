@@ -28,6 +28,17 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("🚀 AIBET Analytics Platform starting up...")
     await cache_manager.initialize()
+    
+    # Get service type from environment
+    service_type = os.getenv("SERVICE_TYPE", "ai_analytics").lower()
+    
+    # Map service types to internal values
+    if service_type in ["ai_analytics", "web"]:
+        service_type = "api"
+    elif service_type in ["ai_bot", "bot", "worker"]:
+        service_type = "bot"
+    
+    logger.info(f"🔧 Service type: {service_type}")
     metrics.startup()
     logger.info("✅ Platform ready")
     
