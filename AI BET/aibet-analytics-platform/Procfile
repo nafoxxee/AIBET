@@ -1,2 +1,0 @@
-web: python app/main.py
-build: pip install -r requirements.txt

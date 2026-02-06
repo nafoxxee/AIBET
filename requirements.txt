@@ -1,20 +1,9 @@
-# AIBET Analytics Platform v1.3 FULL - Production Dependencies
-# Python 3.11 + FastAPI + Render Free Compatible
+# AIBET Analytics Platform - Minimal Production Dependencies
+# Optimized for Render Free (low RAM usage)
 
 # Core Web Framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-pydantic==2.7.4
-pydantic-settings==2.1.0
 
-# HTTP Client & Parsing
-aiohttp==3.9.5
-aiofiles==23.2.1
-beautifulsoup4==4.14.3
-lxml==6.0.2
-
-# Environment & Configuration
+# Essential dependencies only
 python-dotenv==1.0.1
-
-# Logging
-structlog==24.1.0

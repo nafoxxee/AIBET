@@ -1,7 +1,7 @@
 services:
-  # AIBET Analytics Platform v1.3 FULL - Single Web Service
+  # AIBET Analytics Platform - Render Free Optimized
   - type: web
-    name: aibet-analytics-v13
+    name: aibet-analytics
     env: docker
     plan: free
     dockerfilePath: ./Dockerfile
@@ -11,36 +11,9 @@ services:
         value: 8000
       - key: DEBUG
         value: false
-      - key: ENABLE_NHL
-        value: true
-      - key: ENABLE_KHL
-        value: true
-      - key: ENABLE_CS2
-        value: true
-      - key: TTL_NHL
-        value: 300
-      - key: TTL_KHL
-        value: 600
-      - key: TTL_CS2
-        value: 300
-      - key: CACHE_MAX_ITEMS
-        value: 1000
-      - key: AI_EXPLAIN_MODE
-        value: true
     
     # Health check
     healthCheckPath: /health
     
     # Auto-deploy
     autoDeploy: true
-    
-    # Scaling
-    scaling:
-      minInstances: 1
-      maxInstances: 1
-      targetMemoryPercent: 80
-      targetCPUPercent: 80
-    
-    # Region
-    regions:
-      - oregon
