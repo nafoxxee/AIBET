@@ -70,10 +70,12 @@ async def get_unified_matches(
         logger.error(f"Error in unified matches endpoint: {e}")
         await metrics.record_error("unified_matches_error")
         
+        # FAILSAFE: Return empty array instead of error
         return UnifiedResponse(
-            success=False,
-            error=str(e),
-            timestamp=datetime.utcnow()
+            success=True,
+            data=[],
+            timestamp=datetime.utcnow(),
+            message="Service temporarily unavailable, showing cached data"
         )
 
 

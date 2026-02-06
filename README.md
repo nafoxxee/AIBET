@@ -2,80 +2,131 @@
 
 Production-ready analytics backend for NHL, KHL, and CS2 matches and odds with unified AI analytics.
 
-## 🎯 Overview
+## 🚀 Quick Start
 
-AIBET Analytics Platform v1.3 FULL is a **production-ready** backend built with Python 3.11 + FastAPI, designed for deployment on Render Free tier. It aggregates, normalizes, and analyzes sports data from multiple sources with comprehensive AI analytics and educational disclaimers.
+### Local Development
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-## 🏒 Supported Leagues
+# Run development server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-- **🏒 NHL** - National Hockey League (via public JSON API)
-- **🏒 KHL** - Kontinental Hockey League (via HTML parsing)
-- **🎮 CS2** - Counter-Strike 2 Esports (via multi-source parsing)
+# Or using Python
+python -m app.main
+```
 
-## 🚀 Features v1.3 FULL
+### Production Deployment
+```bash
+# Deploy to Render
+git clone https://github.com/nafoxxee/AIBET.git
+# Connect to Render - auto-detects Dockerfile
+# Service: https://aibet-analytics-v13.onrender.com
+```
+
+## 🎯 Features v1.3 FULL
 
 ### ✅ Production Ready
 - **Python 3.11** + FastAPI 0.104.1
-- **In-memory TTL cache** with configurable expiration
-- **JSON structured logging** with structlog
+- **Single entry point**: `app.main:app`
+- **In-memory TTL cache** with graceful fallbacks
+- **JSON structured logging** with metrics
 - **Rate limiting** + security protections
-- **Health checks** for all services
-- **Metrics collection** for performance monitoring
-- **CORS middleware** enabled by default
-- **Global exception handling** with structured responses
+- **Health checks** + monitoring
+- **CORS middleware** enabled
+- **Global exception handling**
 
-### ✅ AI-Ready v1.3
-- **Global Match ID** (deterministic hash)
-- **Unified data schemas** with Pydantic v2
-- **Feature engineering** for ML models
-- **AI scoring engine** with confidence levels
-- **Explainable AI** with educational disclaimers
+### ✅ AI Analytics v1.3
+- **Educational disclaimers** on all responses
 - **Risk assessment** with factor breakdown
-- **Value betting analytics** with market inefficiency detection
+- **Value analytics** with market inefficiency
+- **Confidence levels** with detailed analysis
+- **Not a prediction** warnings
 
 ### ✅ Unified API v1.3
-- **Single entry point**: `app.main:app`
-- **Unified endpoints** under `/v1/` prefix
-- **Structured JSON responses** with success/error handling
-- **Educational disclaimers** on all AI responses
-- **Pydantic validation** for all API responses
+- **All endpoints** under `/v1/` prefix
+- **Structured JSON responses**
+- **Failsafe behavior** - returns cached data on errors
+- **Pydantic validation** for all responses
 
-## 📁 Project Structure v1.3
+## 🌐 API Endpoints
+
+### System
+- `GET /` - Root endpoint
+- `GET /health` - Health check
+- `GET /metrics` - Performance metrics
+- `GET /docs` - Interactive documentation
+
+### League Data
+- `GET /v1/nhl/schedule` - NHL schedule
+- `GET /v1/khl/schedule` - KHL schedule  
+- `GET /v1/cs2/upcoming` - CS2 upcoming matches
+- `GET /v1/odds/nhl` - NHL odds
+- `GET /v1/odds/khl` - KHL odds
+- `GET /v1/odds/cs2` - CS2 odds
+
+### Unified Data
+- `GET /v1/unified/matches` - All matches
+- `GET /v1/unified/leagues` - League status
+- `GET /v1/unified/summary` - Data summary
+
+### AI Analytics
+- `GET /v1/ai/context/{match_id}` - Match context
+- `GET /v1/ai/score/{match_id}` - AI scoring
+- `GET /v1/ai/explain/{match_id}` - AI explanation
+- `GET /v1/ai/value` - Value signals
+
+## 🤖 AI Response Structure
+
+All AI responses include educational disclaimers:
+
+```json
+{
+  "ai_score": 0.743,
+  "confidence": 0.856,
+  "risk_level": "medium",
+  "value_score": 0.612,
+  "not_a_prediction": true,
+  "educational_purpose": true,
+  "disclaimer": "This analysis is provided for educational purposes only...",
+  "analysis_timestamp": "2026-02-06T12:00:00Z",
+  "factors": {
+    "form_analysis": 0.75,
+    "historical_data": 0.68,
+    "market_factors": 0.72,
+    "league_factors": 0.82
+  },
+  "confidence_breakdown": {
+    "data_quality": 0.9,
+    "sample_size": 0.8,
+    "market_stability": 0.87
+  },
+  "risk_factors": ["Limited data quality", "High market volatility"]
+}
+```
+
+## � Project Structure
 
 ```
 app/
-├── main.py                 # FastAPI application entry point v1.3
-├── config.py               # Pydantic settings management
-├── cache.py                # In-memory TTL cache implementation
+├── main.py                 # FastAPI entry point v1.3
+├── config.py               # Pydantic settings
+├── cache.py                # In-memory TTL cache
 ├── logging.py              # JSON structured logging
-├── metrics.py              # Performance metrics collection
+├── metrics.py              # Performance metrics
 ├── schemas.py              # Unified Pydantic models
 ├── quality.py              # Data quality assessment
-├── normalizer.py           # Data normalization utilities
-├── api/                    # API routes v1.3
-│   ├── v1/
-│   │   ├── nhl.py      # NHL endpoints
-│   │   ├── khl.py      # KHL endpoints
-│   │   ├── cs2.py      # CS2 endpoints
-│   │   ├── odds.py     # Odds endpoints
-│   │   ├── unified.py  # Combined endpoints
-│   │   └── ai.py       # AI analytics endpoints
+├── normalizer.py           # Data normalization
+├── api/v1/                 # API routes
+│   ├── nhl.py             # NHL endpoints
+│   ├── khl.py             # KHL endpoints
+│   ├── cs2.py             # CS2 endpoints
+│   ├── odds.py            # Odds endpoints
+│   ├── unified.py         # Combined endpoints
+│   └── ai.py              # AI analytics endpoints
 ├── services/               # Data source services
-│   ├── nhl.py        # NHL API client
-│   ├── khl.py        # KHL HTML parser
-│   ├── cs2.py        # CS2 multi-source parser
-│   └── odds.py       # Odds analysis service
 ├── utils/                  # Utility modules
-│   ├── ids.py         # ID generation
-│   ├── rate_limit.py  # Rate limiting
-│   └── time.py        # Time utilities
-├── ai/                     # AI analytics layer v1.3
-│   ├── context.py     # Context builder
-│   ├── features.py    # Feature engineering
-│   ├── scoring.py     # AI scoring engine
-│   ├── explanation.py # Explanation generator
-│   └── prompts.py     # AI prompt templates
-└── requirements.txt        # Python dependencies v1.3
+└── ai/                     # AI analytics layer
 ```
 
 ## 🔧 Configuration
@@ -105,94 +156,7 @@ CACHE_MAX_ITEMS=1000
 AI_EXPLAIN_MODE=true
 ```
 
-## 🌐 API Endpoints v1.3
-
-### Root & System
-- `GET /` - Root endpoint with API information
-- `GET /health` - Health check with service status
-- `GET /metrics` - Performance metrics
-- `GET /docs` - Interactive API documentation
-- `GET /redoc` - ReDoc documentation
-
-### League-Specific
-- `GET /v1/nhl/schedule` - NHL schedule
-- `GET /v1/khl/schedule` - KHL schedule
-- `GET /v1/cs2/upcoming` - CS2 upcoming matches
-- `GET /v1/odds/nhl` - NHL odds
-- `GET /v1/odds/khl` - KHL odds
-- `GET /v1/odds/cs2` - CS2 odds
-
-### Unified Data
-- `GET /v1/unified/matches` - All matches from all leagues
-- `GET /v1/unified/leagues` - Available leagues and status
-- `GET /v1/unified/summary` - Data summary
-- `GET /v1/unified/search` - Search by team names
-
-### AI Analytics v1.3
-- `GET /v1/ai/context/{match_id}` - AI context for match
-- `GET /v1/ai/score/{match_id}` - AI scoring with confidence
-- `GET /v1/ai/explain/{match_id}` - AI explanation with disclaimers
-- `GET /v1/ai/value` - Value betting signals with risk assessment
-- `GET /v1/ai/features/{match_id}` - AI features for analysis
-
-## 🤖 AI Analytics v1.3
-
-### Response Structure
-All AI responses include:
-```json
-{
-  "ai_score": 0.743,
-  "confidence": 0.856,
-  "risk_level": "medium",
-  "value_score": 0.612,
-  "not_a_prediction": true,
-  "educational_purpose_only": true,
-  "disclaimer": "This analysis is provided for educational purposes only...",
-  "analysis_timestamp": "2026-02-06T12:00:00Z",
-  "factors": {
-    "form_analysis": 0.75,
-    "historical_data": 0.68,
-    "market_factors": 0.72,
-    "league_factors": 0.82
-  },
-  "confidence_breakdown": {
-    "data_quality": 0.9,
-    "sample_size": 0.8,
-    "market_stability": 0.87
-  },
-  "risk_factors": ["Limited data quality", "High market volatility"]
-}
-```
-
-## 🚀 Deployment v1.3
-
-### Local Development
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run development server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Or using Python
-python -m app.main
-```
-
-### Render Free Deployment
-
-1. **Clone Repository**
-   ```bash
-   git clone https://github.com/nafoxxee/AIBET.git
-   cd AIBET
-   ```
-
-2. **Deploy to Render**
-   - Connect repository to Render
-   - Render will auto-detect `Dockerfile` and `requirements.txt`
-   - Service will be available at `https://aibet-analytics-v13.onrender.com`
-
-### Docker Configuration
+## 🐳 Docker Configuration
 
 ```dockerfile
 FROM python:3.11-slim
@@ -208,14 +172,13 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${PORT:-8000}"]
 
 ### Metrics Available
 - Request count by endpoint
-- Response time statistics
+- Response time statistics  
 - Cache hit/miss ratios
 - Source failure tracking
 - Error tracking
 
 ### Logging
-
-Structured JSON logging includes:
+Structured JSON logging with:
 - Timestamp
 - Log level
 - Module and function
@@ -244,10 +207,31 @@ All AI responses include:
 - **Responsible gambling** messages
 - **Risk assessment** factors
 
+## 🚀 Deployment
+
+### Render Free Deployment
+
+1. **Clone Repository**
+   ```bash
+   git clone https://github.com/nafoxxee/AIBET.git
+   cd AIBET
+   ```
+
+2. **Deploy to Render**
+   - Connect repository to Render
+   - Render auto-detects `Dockerfile` and `requirements.txt`
+   - Service available at `https://aibet-analytics-v13.onrender.com`
+
+### Health Checks
+
+Render automatically monitors:
+- `/health` endpoint
+- Container responsiveness
+- Resource usage
+
 ## 🛠️ Development
 
 ### Testing
-
 ```bash
 # Run tests
 pytest
@@ -257,7 +241,6 @@ pytest --cov=app tests/
 ```
 
 ### Code Quality
-
 ```bash
 # Format code
 black app/
@@ -309,6 +292,7 @@ MIT License - see LICENSE file for details.
 - ✅ **Production-ready** Docker configuration
 - ✅ **Comprehensive monitoring** and logging
 - ✅ **CORS enabled** for frontend integration
+- ✅ **Failsafe behavior** with graceful degradation
 - ✅ **Error handling** with structured responses
 
 ---

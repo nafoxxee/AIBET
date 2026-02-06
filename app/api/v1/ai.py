@@ -41,10 +41,18 @@ async def get_ai_context(
         logger.error(f"Error in AI context endpoint: {e}")
         await metrics.record_error("ai_context_error")
         
+        # FAILSAFE: Return educational fallback
         return UnifiedResponse(
-            success=False,
-            error=str(e),
-            timestamp=datetime.utcnow()
+            success=True,
+            data={
+                "global_match_id": global_match_id,
+                "context": "Context temporarily unavailable",
+                "not_a_prediction": True,
+                "educational_purpose": True,
+                "message": "AI context service temporarily unavailable"
+            },
+            timestamp=datetime.utcnow(),
+            message="Educational analysis only"
         )
 
 

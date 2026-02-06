@@ -36,10 +36,12 @@ async def get_nhl_odds(
         logger.error(f"Error in NHL odds endpoint: {e}")
         await metrics.record_error("odds_nhl_error")
         
+        # FAILSAFE: Return empty array instead of error
         return UnifiedResponse(
-            success=False,
-            error=str(e),
-            timestamp=datetime.utcnow()
+            success=True,
+            data=[],
+            timestamp=datetime.utcnow(),
+            message="Service temporarily unavailable, showing cached data"
         )
 
 

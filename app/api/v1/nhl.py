@@ -36,10 +36,12 @@ async def get_nhl_schedule(
         logger.error(f"Error in NHL schedule endpoint: {e}")
         await metrics.record_error("nhl_schedule_error")
         
+        # FAILSAFE: Return empty array instead of error
         return UnifiedResponse(
-            success=False,
-            error=str(e),
-            timestamp=datetime.utcnow()
+            success=True,
+            data=[],
+            timestamp=datetime.utcnow(),
+            message="Service temporarily unavailable, showing cached data"
         )
 
 

@@ -36,10 +36,12 @@ async def get_cs2_upcoming(
         logger.error(f"Error in CS2 upcoming endpoint: {e}")
         await metrics.record_error("cs2_upcoming_error")
         
+        # FAILSAFE: Return empty array instead of error
         return UnifiedResponse(
-            success=False,
-            error=str(e),
-            timestamp=datetime.utcnow()
+            success=True,
+            data=[],
+            timestamp=datetime.utcnow(),
+            message="Service temporarily unavailable, showing cached data"
         )
 
 

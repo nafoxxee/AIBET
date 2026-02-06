@@ -1,5 +1,5 @@
 services:
-  # AIBET Analytics Platform v1.3 FULL - Web Service
+  # AIBET Analytics Platform v1.3 FULL - Single Web Service
   - type: web
     name: aibet-analytics-v13
     env: docker
@@ -9,8 +9,6 @@ services:
     envVars:
       - key: PORT
         value: 8000
-      - key: PYTHON_VERSION
-        value: 3.11
       - key: DEBUG
         value: false
       - key: ENABLE_NHL

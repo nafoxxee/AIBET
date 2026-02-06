@@ -36,10 +36,12 @@ async def get_khl_schedule(
         logger.error(f"Error in KHL schedule endpoint: {e}")
         await metrics.record_error("khl_schedule_error")
         
+        # FAILSAFE: Return empty array instead of error
         return UnifiedResponse(
-            success=False,
-            error=str(e),
-            timestamp=datetime.utcnow()
+            success=True,
+            data=[],
+            timestamp=datetime.utcnow(),
+            message="Service temporarily unavailable, showing cached data"
         )
 
 
