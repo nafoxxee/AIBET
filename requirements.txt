@@ -1,12 +1,18 @@
-# AIBET Analytics Platform - Production Dependencies
-# FastAPI API + Telegram Bot (AIBOT)
+# AIBET + AIBOT - Unified Web Service Dependencies
+# Render Free Optimized
 
-# Core Web Framework (AIBET API)
+# Core Web Framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 
-# Telegram Bot (AIBOT)
+# Telegram Bot with Webhook Support
 python-telegram-bot==20.7
 
-# Essential dependencies
+# HTTP Client for Webhook
+httpx==0.25.2
+
+# Data Validation
+pydantic==2.7.4
+
+# Environment Management
 python-dotenv==1.0.1

@@ -1,7 +1,7 @@
 services:
-  # AIBET Analytics API - Web Service
+  # AIBET + AIBOT - Unified Web Service
   - type: web
-    name: aibet-analytics
+    name: aibet-unified
     env: docker
     plan: free
     dockerfilePath: ./Dockerfile
@@ -9,30 +9,15 @@ services:
     envVars:
       - key: PORT
         value: 8000
+      - key: BOT_TOKEN
+        sync: false
+      - key: RENDER_EXTERNAL_URL
+        value: https://aibet-unified.onrender.com
       - key: DEBUG
         value: false
     
     # Health check
-    healthCheckPath: /health
-    
-    # Auto-deploy
-    autoDeploy: true
-
-  # AIBOT Telegram Bot - Background Worker
-  - type: worker
-    name: aibot-telegram
-    env: docker
-    plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    envVars:
-      - key: BOT_TOKEN
-        sync: false
-      - key: DEBUG
-        value: false
-    
-    # Override command for bot
-    startCommand: "python bot/bot.py"
+    healthCheckPath: /api/health
     
     # Auto-deploy
     autoDeploy: true
