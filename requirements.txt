@@ -1,5 +1,9 @@
 # AIBET Analytics Platform - Production Dependencies
-# Python 3.11 + FastAPI + Render Free Compatible
+# SQLAlchemy MUST be installed first
+
+# Database - CRITICAL - Install FIRST
+sqlalchemy==2.0.25
+aiosqlite==0.20.0
 
 # Core Web Framework
 fastapi==0.104.1
