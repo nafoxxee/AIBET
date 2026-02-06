@@ -1,0 +1,359 @@
+"""
+AIBET Analytics Platform - AI Scoring Engine
+"""
+
+import asyncio
+import logging
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+import random
+
+from app.schemas import AIScore, LeagueMatch
+from app.logging import setup_logging
+
+logger = setup_logging(__name__)
+
+
+class AIScoringEngine:
+    """AI scoring engine for match analysis"""
+    
+    def __init__(self):
+        self.scoring_models = {
+            "confidence": {
+                "form_weight": 0.4,
+                "h2h_weight": 0.3,
+                "odds_weight": 0.2,
+                "situational_weight": 0.1
+            },
+            "value": {
+                "odds_vs_form_weight": 0.5,
+                "market_inefficiency_weight": 0.3,
+                "volatility_weight": 0.2
+            }
+        }
+    
+    async def calculate_ai_score(self, match: LeagueMatch, features: Dict[str, Any]) -> AIScore:
+        """Calculate comprehensive AI score"""
+        try:
+            # Extract composite scores
+            composite_scores = features.get("composite_scores", {})
+            
+            confidence_score = composite_scores.get("confidence_score", 0.5)
+            value_score = composite_scores.get("value_score", 0.5)
+            
+            # Determine risk level
+            risk_level = self._determine_risk_level(confidence_score, features)
+            
+            # Apply AI model adjustments
+            adjusted_confidence = await self._apply_confidence_adjustments(
+                confidence_score, features
+            )
+            adjusted_value = await self._apply_value_adjustments(
+                value_score, features
+            )
+            
+            return AIScore(
+                ai_score=min(1.0, (adjusted_confidence + adjusted_value) / 2),
+                confidence=adjusted_confidence,
+                risk_level=risk_level
+            )
+            
+        except Exception as e:
+            logger.error(f"Error calculating AI score: {e}")
+            return AIScore(
+                ai_score=0.5,
+                confidence=0.5,
+                risk_level="high"
+            )
+    
+    async def _apply_confidence_adjustments(self, base_confidence: float, features: Dict[str, Any]) -> float:
+        """Apply confidence adjustments based on various factors"""
+        try:
+            adjusted_confidence = base_confidence
+            
+            # Data quality adjustment
+            data_quality = features.get("data_quality", "medium")
+            if data_quality == "high":
+                adjusted_confidence *= 1.1
+            elif data_quality == "low":
+                adjusted_confidence *= 0.8
+            
+            # Sample size adjustment
+            form_features = features.get("form", {})
+            if form_features.get("available"):
+                team_a_matches = form_features.get("team_a", {}).get("matches_played", 0)
+                team_b_matches = form_features.get("team_b", {}).get("matches_played", 0)
+                min_matches = min(team_a_matches, team_b_matches)
+                
+                if min_matches >= 10:
+                    adjusted_confidence *= 1.05
+                elif min_matches < 3:
+                    adjusted_confidence *= 0.9
+            
+            # Odds consistency adjustment
+            odds_features = features.get("odds", {})
+            if odds_features.get("available"):
+                if not odds_features.get("movement_detected"):
+                    adjusted_confidence *= 1.02  # Stable odds = slightly higher confidence
+            
+            # League-specific adjustments
+            league_features = features.get("league_specific", {})
+            if league_features.get("available"):
+                league = league_features.get("league")
+                if league == "NHL":
+                    adjusted_confidence *= 1.0  # Baseline
+                elif league == "KHL":
+                    adjusted_confidence *= 0.95  # Slightly lower confidence
+                elif league == "CS2":
+                    adjusted_confidence *= 0.98  # Esports volatility
+            
+            # Ensure within bounds
+            return max(0.1, min(1.0, adjusted_confidence))
+            
+        except Exception as e:
+            logger.error(f"Error applying confidence adjustments: {e}")
+            return base_confidence
+    
+    async def _apply_value_adjustments(self, base_value: float, features: Dict[str, Any]) -> float:
+        """Apply value adjustments based on market analysis"""
+        try:
+            adjusted_value = base_value
+            
+            # Odds spread analysis
+            odds_features = features.get("odds", {})
+            if odds_features.get("available"):
+                odds_spread = odds_features.get("odds_spread", 0)
+                avg_odds = odds_features.get("avg_odds", 2.0)
+                
+                # Higher spread = more value opportunities
+                if odds_spread > 0.5:
+                    adjusted_value *= 1.1
+                elif odds_spread > 0.3:
+                    adjusted_value *= 1.05
+                
+                # Market inefficiency detection
+                if avg_odds > 3.0:
+                    adjusted_value *= 1.15  # High odds often indicate inefficiency
+                elif avg_odds < 1.7:
+                    adjusted_value *= 0.9   # Very low odds = low value
+            
+            # Form vs odds mismatch
+            form_features = features.get("form", {})
+            if form_features.get("available"):
+                form_advantage = form_features.get("form_differential", {}).get("advantage", "balanced")
+                
+                if form_advantage != "balanced":
+                    if (form_advantage == "team_a" and avg_odds > 2.2) or \
+                       (form_advantage == "team_b" and avg_odds < 1.8):
+                        adjusted_value *= 1.2  # Strong mismatch = high value
+                    elif (form_advantage == "team_a" and avg_odds > 2.5) or \
+                         (form_advantage == "team_b" and avg_odds < 1.6):
+                        adjusted_value *= 1.3  # Very strong mismatch = very high value
+            
+            # Time-based value
+            situational_features = features.get("situational", {})
+            if situational_features.get("available"):
+                urgency = situational_features.get("urgency", "normal")
+                if urgency == "imminent":
+                    adjusted_value *= 1.05  # Last-minute analysis
+                performance_factor = situational_features.get("performance_factor", "standard")
+                if performance_factor == "enhanced":
+                    adjusted_value *= 1.03
+            
+            # Ensure within bounds
+            return max(0.1, min(1.0, adjusted_value))
+            
+        except Exception as e:
+            logger.error(f"Error applying value adjustments: {e}")
+            return base_value
+    
+    def _determine_risk_level(self, confidence: float, features: Dict[str, Any]) -> str:
+        """Determine risk level based on confidence and other factors"""
+        try:
+            # Base risk from confidence
+            if confidence > 0.8:
+                base_risk = "low"
+            elif confidence > 0.5:
+                base_risk = "medium"
+            else:
+                base_risk = "high"
+            
+            # Risk adjustments
+            risk_adjustments = []
+            
+            # Data quality risk
+            data_quality = features.get("data_quality", "medium")
+            if data_quality == "low":
+                risk_adjustments.append(1)  # Increase risk
+            
+            # Sample size risk
+            form_features = features.get("form", {})
+            if form_features.get("available"):
+                team_a_matches = form_features.get("team_a", {}).get("matches_played", 0)
+                team_b_matches = form_features.get("team_b", {}).get("matches_played", 0)
+                min_matches = min(team_a_matches, team_b_matches)
+                
+                if min_matches < 3:
+                    risk_adjustments.append(1)
+            
+            # Odds volatility risk
+            odds_features = features.get("odds", {})
+            if odds_features.get("available"):
+                volatility = odds_features.get("volatility", "low")
+                if volatility == "high":
+                    risk_adjustments.append(1)
+            
+            # League risk
+            league_features = features.get("league_specific", {})
+            if league_features.get("available"):
+                league = league_features.get("league")
+                if league == "CS2":
+                    risk_adjustments.append(0.5)  # Esports = higher volatility
+            
+            # Apply risk adjustments
+            if risk_adjustments and sum(risk_adjustments) >= 2:
+                if base_risk == "low":
+                    return "medium"
+                elif base_risk == "medium":
+                    return "high"
+            
+            return base_risk
+            
+        except Exception as e:
+            logger.error(f"Error determining risk level: {e}")
+            return "medium"
+    
+    async def generate_explanation_factors(self, match: LeagueMatch, features: Dict[str, Any]) -> Dict[str, List[str]]:
+        """Generate explanation factors for AI analysis"""
+        try:
+            positive_factors = []
+            negative_factors = []
+            
+            # Form analysis
+            form_features = features.get("form", {})
+            if form_features.get("available"):
+                form_diff = form_features.get("form_differential", {})
+                advantage = form_diff.get("advantage", "balanced")
+                
+                if advantage != "balanced":
+                    positive_factors.append(f"{advantage} shows better recent form")
+                
+                team_a_momentum = form_features.get("team_a", {}).get("momentum", 0)
+                team_b_momentum = form_features.get("team_b", {}).get("momentum", 0)
+                
+                if abs(team_a_momentum) > 0.5:
+                    positive_factors.append("Team A has strong positive momentum")
+                if abs(team_b_momentum) > 0.5:
+                    positive_factors.append("Team B has strong positive momentum")
+                if team_a_momentum < -0.5:
+                    negative_factors.append("Team A showing negative momentum")
+                if team_b_momentum < -0.5:
+                    negative_factors.append("Team B showing negative momentum")
+            
+            # Head-to-head analysis
+            h2h_features = features.get("head_to_head", {})
+            if h2h_features.get("available"):
+                dominance = h2h_features.get("dominance", "competitive")
+                total_matches = h2h_features.get("total_matches", 0)
+                
+                if dominance == "team_a_strong":
+                    positive_factors.append(f"Team A dominates historically ({h2h_features.get('team_a_win_rate', 0):.1%} win rate)")
+                elif dominance == "team_b_strong":
+                    positive_factors.append(f"Team B dominates historically ({h2h_features.get('team_b_win_rate', 0):.1%} win rate)")
+                elif dominance == "balanced":
+                    positive_factors.append("Historically balanced matchup")
+                
+                if total_matches >= 10:
+                    positive_factors.append("Strong historical sample size")
+                elif total_matches < 3:
+                    negative_factors.append("Limited historical data")
+            
+            # Odds analysis
+            odds_features = features.get("odds", {})
+            if odds_features.get("available"):
+                volatility = odds_features.get("volatility", "low")
+                avg_odds = odds_features.get("avg_odds", 2.0)
+                
+                if volatility == "low":
+                    positive_factors.append("Stable odds across bookmakers")
+                elif volatility == "high":
+                    negative_factors.append("High odds volatility detected")
+                
+                if avg_odds > 3.0:
+                    positive_factors.append("High odds indicate potential value")
+                elif avg_odds < 1.7:
+                    negative_factors.append("Low odds suggest limited value")
+            
+            # Situational factors
+            situational_features = features.get("situational", {})
+            if situational_features.get("available"):
+                performance_factor = situational_features.get("performance_factor", "standard")
+                urgency = situational_features.get("urgency", "normal")
+                
+                if performance_factor == "enhanced":
+                    positive_factors.append("Optimal timing conditions")
+                if urgency == "imminent":
+                    positive_factors.append("Match starting soon - fresh data")
+            
+            # Data quality factors
+            data_quality = features.get("data_quality", "medium")
+            if data_quality == "high":
+                positive_factors.append("High quality data sources")
+            elif data_quality == "low":
+                negative_factors.append("Limited data quality")
+            
+            return {
+                "positive_factors": positive_factors[:5],  # Limit to top 5
+                "negative_factors": negative_factors[:5]   # Limit to top 5
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating explanation factors: {e}")
+            return {
+                "positive_factors": ["Error generating analysis"],
+                "negative_factors": [str(e)]
+            }
+    
+    async def calculate_verdict(self, ai_score: AIScore, features: Dict[str, Any]) -> str:
+        """Generate verdict based on AI score"""
+        try:
+            score = ai_score.ai_score
+            confidence = ai_score.confidence
+            risk = ai_score.risk_level
+            
+            # High confidence, low risk
+            if confidence > 0.8 and risk == "low":
+                if score > 0.7:
+                    return "Strong analytical signal with high confidence"
+                elif score > 0.5:
+                    return "Moderate analytical signal with good confidence"
+                else:
+                    return "Weak analytical signal despite high confidence"
+            
+            # High confidence, medium risk
+            elif confidence > 0.8 and risk == "medium":
+                return "Moderate confidence with some risk factors"
+            
+            # Medium confidence
+            elif confidence > 0.5:
+                if risk == "low":
+                    return "Decent analytical signal with moderate confidence"
+                elif risk == "medium":
+                    return "Cautious analytical recommendation"
+                else:
+                    return "High risk - limited analytical value"
+            
+            # Low confidence
+            else:
+                if risk == "high":
+                    return "Insufficient data for reliable analysis"
+                else:
+                    return "Low confidence - limited predictive value"
+            
+        except Exception as e:
+            logger.error(f"Error calculating verdict: {e}")
+            return "Unable to generate reliable verdict"
+
+
+# Global AI scoring engine
+ai_scoring_engine = AIScoringEngine()
