@@ -1,7 +1,7 @@
 """
-AIBOT - Telegram Bot Module
+AIBET Bot Module
 """
 
-from . import bot
+from .bot import bot, AIBOTBot
 
-__all__ = ["bot"]
+__all__ = ["bot", "AIBOTBot"]

@@ -1,18 +1,12 @@
-# AIBET + AIBOT - Unified Web Service Dependencies
-# Render Free Optimized
+# AIBET - Timeweb VPS Dependencies
+# Telegram Bot + FastAPI API
 
-# Core Web Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-
-# Telegram Bot with Webhook Support
+# Telegram Bot
 python-telegram-bot==20.7
 
-# HTTP Client for Webhook
-httpx==0.25.2
-
-# Data Validation
-pydantic==2.7.4
+# FastAPI Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
 
 # Environment Management
 python-dotenv==1.0.1

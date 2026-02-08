@@ -1,225 +1,463 @@
 """
-AIBOT - Telegram Bot for AIBET Analytics Platform
-Simple bot for educational sports analytics
+AIBET Telegram Bot - Timeweb Version
+Educational sports analytics bot with long polling
 """
 
-import os
 import asyncio
+import signal
+import sys
 from datetime import datetime
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from typing import List
+
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+
+from core.config import config
+from core.storage import storage
 
 
-# Bot configuration
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-if not BOT_TOKEN:
-    print("❌ ERROR: BOT_TOKEN environment variable is required")
-    exit(1)
-
-
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /start command"""
-    welcome_message = """
-🚀 **AIBOT - Educational Sports Analytics Bot**
-
-Welcome to the educational sports analytics assistant!
-
-📊 **Available Commands:**
-/start - Show this welcome message
-/help - Show help information
-/status - Check bot status
-/about - About this service
-
-⚠️ **Educational Purpose Only:**
-This bot provides educational sports analytics information only.
-No betting advice or predictions are provided.
-
-🌐 **AIBET Analytics Platform:**
-Web API: https://aibet-analytics.onrender.com
-Documentation: https://aibet-analytics.onrender.com/docs
-
-📈 **Features:**
-• NHL schedule and analytics
-• KHL matches and insights  
-• CS2 esports data
-• Educational AI analysis
-
-🔍 **Data Sources:**
-Public sports APIs and official league websites
-Real-time educational analytics
-"""
+class AIBOTBot:
+    """AIBET Telegram Bot"""
     
-    await update.message.reply_text(welcome_message, parse_mode='Markdown')
-
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /help command"""
-    help_message = """
-🤖 **AIBOT Help - Educational Analytics**
-
-📋 **Commands:**
-/start - Welcome message
-/help - Show this help
-/status - Bot service status
-/about - About information
-
-🏒 **Sports Covered:**
-• NHL - National Hockey League
-• KHL - Kontinental Hockey League  
-• CS2 - Counter-Strike 2 Esports
-
-📊 **Analytics Features:**
-• Match schedules
-• Educational insights
-• Risk assessment
-• Value analysis
-
-⚠️ **Important Notice:**
-All information is for educational purposes only.
-No betting advice or financial recommendations.
-
-🌐 **Web Platform:**
-Visit our main platform at:
-https://aibet-analytics.onrender.com
-
-📚 **Documentation:**
-API docs: https://aibet-analytics.onrender.com/docs
-
-❓ **Support:**
-For technical issues, please check our web platform.
-"""
+    def __init__(self):
+        self.application = None
+        self.running = False
     
-    await update.message.reply_text(help_message, parse_mode='Markdown')
+    async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /start command with inline buttons"""
+        try:
+            user_id = update.effective_user.id
+            username = update.effective_user.username or update.effective_user.first_name or "User"
+            
+            # Store user data
+            storage.set_user_data(user_id, "last_command", "start")
+            storage.set_user_data(user_id, "username", username)
+            
+            # Create inline keyboard
+            keyboard = [
+                [
+                    InlineKeyboardButton("🏒 NHL", callback_data="nhl"),
+                    InlineKeyboardButton("🏒 KHL", callback_data="khl")
+                ],
+                [
+                    InlineKeyboardButton("🎮 CS2", callback_data="cs2"),
+                    InlineKeyboardButton("📊 О проекте", callback_data="about")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            welcome_message = f"""
+🚀 **AIBET - Educational Sports Analytics Bot**
 
+Добро пожаловать, {username}!
 
-async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /status command"""
-    status_message = f"""
-📊 **AIBOT Service Status**
+📊 **Выберите раздел:**
+Используйте кнопки ниже для навигации
 
-✅ **Bot Status:** Online
-🕒 **Current Time:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
-🤖 **Bot Version:** 1.3.0
+⚠️ **Важно:**
+Этот бот предоставляет образовательную информацию только.
+Никаких ставок или прогнозов не дается.
 
-🌐 **Connected Services:**
-• AIBET Analytics API: ✅ Online
-• Educational AI Engine: ✅ Active
-• Data Sources: ✅ Connected
-
-📈 **Analytics Available:**
-• NHL Schedule: ✅ Available
-• KHL Matches: ✅ Available  
-• CS2 Esports: ✅ Available
-• AI Insights: ✅ Educational Only
-
-⚠️ **Service Mode:** Educational Analytics Only
-🔒 **Compliance:** Educational Purpose Only
-
-🌐 **Web Platform:** https://aibet-analytics.onrender.com
+🌐 **AIBET Analytics:**
+Веб-платформа: https://aibet-analytics.onrender.com
+Документация: https://aibet-analytics.onrender.com/docs
 """
+            
+            await update.message.reply_text(
+                welcome_message,
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+            
+            print(f"📤 Start command sent to user {username} (ID: {user_id})")
+            
+        except Exception as e:
+            print(f"❌ Error in start_command: {e}")
+            await update.message.reply_text("❌ Временная ошибка сервиса")
     
-    await update.message.reply_text(status_message, parse_mode='Markdown')
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /help command"""
+        try:
+            help_message = """
+🤖 **AIBET - Помощь**
 
+📋 **Доступные команды:**
+/start - Главное меню с кнопками
+/help - Эта справка
+/status - Статус бота
+/about - О проекте
 
-async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /about command"""
-    about_message = """
-🏆 **About AIBOT - Educational Sports Analytics**
+🏒 **Виды спорта:**
+• **NHL** - Национальная хоккейная лига
+• **KHL** - Континентальная хоккейная лига
+• **CS2** - Киберспорт Counter-Strike 2
 
-📖 **Mission:**
-To provide educational sports analytics and insights for learning purposes only.
+📊 **Аналитика:**
+• Расписание матчей
+• Образовательные инсайты
+• Оценка рисков
+• Анализ эффективности
 
-🔬 **Technology:**
+⚠️ **Важное уведомление:**
+Вся информация предоставляется в образовательных целях.
+Никаких советов по ставкам или финансовых рекомендаций.
+
+🌐 **Платформа:**
+Веб: https://aibet-analytics.onrender.com
+API: https://aibet-analytics.onrender.com/docs
+
+❓ **Поддержка:**
+Для технических вопросов проверьте веб-платформу.
+"""
+            
+            await update.message.reply_text(help_message, parse_mode='Markdown')
+            print(f"📤 Help command sent to user {update.effective_user.id}")
+            
+        except Exception as e:
+            print(f"❌ Error in help_command: {e}")
+            await update.message.reply_text("❌ Временная ошибка сервиса")
+    
+    async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /status command"""
+        try:
+            stats = storage.get_stats()
+            status_message = f"""
+📊 **Статус AIBOT**
+
+✅ **Статус бота:** Онлайн
+🕒 **Текущее время:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+🤖 **Версия бота:** 1.0.0
+
+🌐 **Подключенные сервисы:**
+• AIBET Analytics API: ✅ Онлайн
+• Движок AI: ✅ Активен
+• Источники данных: ✅ Подключены
+
+📈 **Доступная аналитика:**
+• Расписание NHL: ✅ Доступно
+• Матчи KHL: ✅ Доступно
+• CS2 киберспорт: ✅ Доступно
+• AI инсайты: ✅ Только образовательные
+
+📊 **Статистика хранилища:**
+• Всего ключей: {stats['total_keys']}
+• Всего пользователей: {stats['total_users']}
+• Время обновления: {stats['timestamp']}
+
+⚠️ **Режим работы:** Только образовательная аналитика
+🔒 **Соответствие:** Только образовательные цели
+
+🌐 **Веб-платформа:** https://aibet-analytics.onrender.com
+"""
+            
+            await update.message.reply_text(status_message, parse_mode='Markdown')
+            print(f"📤 Status command sent to user {update.effective_user.id}")
+            
+        except Exception as e:
+            print(f"❌ Error in status_command: {e}")
+            await update.message.reply_text("❌ Временная ошибка сервиса")
+    
+    async def about_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /about command"""
+        try:
+            about_message = """
+🏆 **О проекте AIBET**
+
+📖 **Миссия:**
+Предоставление образовательной спортивной аналитики и инсайтов для учебных целей.
+
+🔬 **Технологии:**
 • FastAPI Backend
 • Telegram Bot Framework
-• Educational AI Analysis
-• Real-time Data Processing
+• Образовательный AI анализ
+• Обработка данных в реальном времени
 
-🏒 **Sports Coverage:**
-• **NHL** - Professional hockey analytics
-• **KHL** - International hockey insights
-• **CS2** - Esports analytics
+🏒 **Покрытие спорта:**
+• **NHL** - Профессиональный хоккей
+• **KHL** - Международный хоккей
+• **CS2** - Киберспорт
 
-📊 **Analytics Features:**
-• Match schedules and timing
-• Team performance insights
-• Educational risk assessment
-• Market efficiency analysis
+📊 **Функции аналитики:**
+• Расписание матчей
+• Инсайты по командам
+• Образовательная оценка рисков
+• Анализ рыночной эффективности
 
-⚠️ **Educational Disclaimer:**
-All information provided is for educational purposes only.
-No betting advice, financial recommendations, or predictions.
-Sports analytics involves inherent uncertainties.
+⚠️ **Образовательная оговорка:**
+Вся предоставляемая информация предназначена только для образовательных целей.
+Никаких ставок, финансовых рекомендаций или прогнозов.
+Спортивная аналитика сопряжена с неопределенностями.
 
-🌐 **Platform Integration:**
-• Web API: https://aibet-analytics.onrender.com
-• Documentation: /docs endpoint
-• Health Monitoring: /health endpoint
+🌐 **Интеграция платформы:**
+• Веб API: https://aibet-analytics.onrender.com
+• Документация: /docs endpoint
+• Мониторинг здоровья: /health endpoint
 
-📚 **Learning Resources:**
-Educational sports analytics for:
-• Data science enthusiasts
-• Sports analytics students
-• Research purposes
-• Technical demonstrations
+📚 **Образовательные ресурсы:**
+Образовательная спортивная аналитика для:
+• Энтузиастов data science
+• Студентов спортивной аналитики
+• Исследовательских целей
+• Технических демонстраций
 
-🔒 **Compliance:**
-• Educational purpose only
-• No gambling services
-• No financial advice
-• Responsible analytics
+🔒 **Соответствие:**
+• Только образовательные цели
+• Никаких азартных игр
+• Никаких финансовых советов
+• Ответственная аналитика
 
-📈 **Version:** 1.3.0
-🕒 **Last Updated:** 2026-02-06
+📈 **Версия:** 1.0.0
+🕒 **Последнее обновление:** 2026-02-08
 """
+            
+            await update.message.reply_text(about_message, parse_mode='Markdown')
+            print(f"📤 About command sent to user {update.effective_user.id}")
+            
+        except Exception as e:
+            print(f"❌ Error in about_command: {e}")
+            await update.message.reply_text("❌ Временная ошибка сервиса")
     
-    await update.message.reply_text(about_message, parse_mode='Markdown')
+    async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle inline button callbacks"""
+        try:
+            query = update.callback_query
+            await query.answer()
+            
+            user_id = update.effective_user.id
+            callback_data = query.data
+            
+            # Store button click
+            storage.set_user_data(user_id, "last_button", callback_data)
+            
+            # Handle different buttons
+            if callback_data == "nhl":
+                message = """
+🏒 **NHL - Национальная Хоккейная Лига**
 
+📊 **Доступные функции:**
+• Расписание матчей
+• Статистика команд
+• Образовательный анализ
+• Исторические данные
 
-async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle errors"""
-    print(f"Error with update {update}: {context.error}")
-    
-    error_message = """
-❌ **Service Temporarily Unavailable**
+🔍 **Текущий статус:**
+Сервис находится в разработке.
+Скоро будут доступны актуальные данные.
 
-Please try again later.
-For continuous service, visit our web platform:
+📈 **Что будет доступно:**
+• Календарь матчей NHL
+• Анализ формы команд
+• Статистика игроков
+• Образовательные прогнозы
+
+⚠️ **Важно:**
+Все данные предоставляются в образовательных целях.
+Никаких рекомендаций по ставкам.
+
+🌐 **Подробности:**
+https://aibet-analytics.onrender.com/docs
+"""
+            
+            elif callback_data == "khl":
+                message = """
+🏒 **KHL - Континентальная Хоккейная Лига**
+
+📊 **Доступные функции:**
+• Расписание матчей
+• Турнирная таблица
+• Образовательный анализ
+• Статистика сезонов
+
+🔍 **Текущий статус:**
+Сервис находится в разработке.
+Скоро будут доступны актуальные данные.
+
+📈 **Что будет доступно:**
+• Календарь матчей KHL
+• Плей-офф статистика
+• Анализ команд
+• Образовательные инсайты
+
+⚠️ **Важно:**
+Все данные предоставляются в образовательных целях.
+Никаких рекомендаций по ставкам.
+
+🌐 **Подробности:**
+https://aibet-analytics.onrender.com/docs
+"""
+            
+            elif callback_data == "cs2":
+                message = """
+🎮 **CS2 - Counter-Strike 2 Киберспорт**
+
+📊 **Доступные функции:**
+• Предстоящие матчи
+• Результаты турниров
+• Образовательный анализ
+• Статистика команд
+
+🔍 **Текущий статус:**
+Сервис находится в разработке.
+Скоро будут доступны актуальные данные.
+
+📈 **Что будет доступно:**
+• Расписание турниров
+• Анализ форм команд
+• Статистика игроков
+• Образовательные прогнозы
+
+⚠️ **Важно:**
+Все данные предоставляются в образовательных целях.
+Никаких рекомендаций по ставкам.
+
+🌐 **Подробности:**
+https://aibet-analytics.onrender.com/docs
+"""
+            
+            elif callback_data == "about":
+                message = """
+📊 **О проекте AIBET**
+
+🏆 **Наша миссия:**
+Предоставление качественной образовательной спортивной аналитики.
+
+🔬 **Технологический стек:**
+• FastAPI для backend
+• Telegram Bot для интерфейса
+• Python для обработки данных
+• Образовательный AI анализ
+
+📈 **Наши цели:**
+• Сделать спортивную аналитику доступной
+• Предоставить образовательные материалы
+• Поддерживать ответственное использование
+• Обеспечить точность данных
+
+🌐 **Платформа:**
+Основная веб-платформа:
 https://aibet-analytics.onrender.com
 
-⚠️ Educational analytics only.
+📚 **Для кого это:**
+• Студенты data science
+• Энтузиасты спорта
+• Исследователи
+• Образовательные учреждения
+
+🔒 **Наши принципы:**
+• Только образовательные цели
+• Никаких азартных игр
+• Ответственная аналитика
+• Прозрачность данных
+
+📞 **Связь:**
+Технические вопросы через веб-платформу.
 """
+            
+            else:
+                message = "❌ Неизвестная команда"
+            
+            await query.edit_message_text(
+                message,
+                parse_mode='Markdown'
+            )
+            
+            print(f"🔘 Button '{callback_data}' clicked by user {user_id}")
+            
+        except Exception as e:
+            print(f"❌ Error in button_callback: {e}")
+            if update.callback_query:
+                await update.callback_query.answer("❌ Ошибка обработки")
     
+    async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle errors"""
+        print(f"❌ Error {context.error}")
+        
+        error_message = """
+❌ **Произошла ошибка**
+
+Попробуйте еще раз позже.
+Для непрерывной работы посетите нашу веб-платформу:
+https://aibet-analytics.onrender.com
+
+⚠️ Только образовательная аналитика.
+"""
+        
+        try:
+            if update and hasattr(update, 'message'):
+                await update.message.reply_text(error_message)
+        except:
+            pass  # Avoid error loops
+    
+    def setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown"""
+        def signal_handler(signum, frame):
+            print(f"\n🔄 Получен сигнал {signum}, завершение работы...")
+            self.running = False
+            if self.application:
+                self.application.stop()
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+    
+    async def run(self):
+        """Run the bot"""
+        try:
+            print("🚀 Запуск AIBET Telegram Bot...")
+            print(f"🤖 Token: {config.BOT_TOKEN[:10]}...")
+            print(f"🐛 Debug: {config.DEBUG}")
+            
+            # Create application
+            self.application = Application.builder().token(config.BOT_TOKEN).build()
+            
+            # Add handlers
+            self.application.add_handler(CommandHandler("start", self.start_command))
+            self.application.add_handler(CommandHandler("help", self.help_command))
+            self.application.add_handler(CommandHandler("status", self.status_command))
+            self.application.add_handler(CommandHandler("about", self.about_command))
+            self.application.add_handler(CallbackQueryHandler(self.button_callback))
+            
+            # Add error handler
+            self.application.add_error_handler(self.error_handler)
+            
+            # Setup signal handlers
+            self.setup_signal_handlers()
+            
+            print("✅ Обработчики команд зарегистрированы")
+            print("🤖 AIBET запускается...")
+            
+            # Run bot with polling
+            self.running = True
+            await self.application.run_polling(
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True
+            )
+            
+        except Exception as e:
+            print(f"❌ Критическая ошибка при запуске бота: {e}")
+            raise
+        finally:
+            print("🔄 AIBET завершает работу...")
+
+
+# Global bot instance
+bot = AIBOTBot()
+
+
+async def main():
+    """Main entry point"""
     try:
-        await update.message.reply_text(error_message, parse_mode='Markdown')
-    except:
-        pass  # Avoid error loops
-
-
-def main() -> None:
-    """Start the bot"""
-    print("🚀 Starting AIBOT - Educational Sports Analytics Bot")
-    print(f"📅 Started at: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-    
-    # Create the Application
-    application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Add command handlers
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("status", status_command))
-    application.add_handler(CommandHandler("about", about_command))
-    
-    # Add error handler
-    application.add_error_handler(error_handler)
-    
-    # Start the bot
-    print("✅ Bot handlers registered")
-    print("🤖 AIBOT is starting...")
-    
-    # Run the bot until the user presses Ctrl-C
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+        # Validate configuration
+        config.validate()
+        
+        # Run bot
+        await bot.run()
+        
+    except KeyboardInterrupt:
+        print("\n🛑 Получен KeyboardInterrupt, завершение...")
+    except Exception as e:
+        print(f"❌ Критическая ошибка: {e}")
+        sys.exit(1)
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
